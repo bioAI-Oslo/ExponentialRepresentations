@@ -21,7 +21,7 @@ def construct_exponential(sA, sB, Gr, s = 1):
     return A, B, R
 
 def rectify(x): # relu
-    return np.maximum(x, np.mean(x))
+    return np.maximum(x, 0)
 
 def block_diag(fill_vals):
     # Helper function to create block-diagonal skew-symmetric matrices
@@ -98,3 +98,28 @@ def ratemap_collage(ratemaps, cols=5, figsize=(5, 5), cmap="viridis", vmin=None,
         axs[i // cols, i % cols].axis("off")
     
     return fig, axs
+
+
+def orthogonal_basis(q0):
+    # find basis orthogonal to q0 using Gram-Schmidt orthonormalization
+    # q0 is the first vector of the basis
+
+    basis = []
+    basis.append(q0)
+    
+    for i in range(len(q0) - 1):
+        
+        q = np.random.uniform(-1, 1, len(q0)) # i-th column of A
+        
+        for j in range(len(basis)):
+            z = basis[j]
+            q = q - np.dot(q, z) * z
+        
+        if np.array_equal(q, np.zeros(q.shape)):
+            raise np.linalg.LinAlgError("The column vectors are not linearly independent")
+        
+        # normalize q
+        q = q / np.sqrt(np.dot(q, q))
+        basis.append(q)
+    
+    return np.array(basis)
