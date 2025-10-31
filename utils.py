@@ -1,38 +1,27 @@
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.stats import binned_statistic_2d
+import scipy
 from tqdm import tqdm
 
-def plot_ratemaps(x, y, p, n = 5, bins = 32, figsize = (2,2)):
-    fig, ax = plt.subplots(n, n, figsize = figsize)
-    axs = ax.ravel()
-    hists = binned_statistic_2d(x,y, p.T, bins = bins)[0]
-
-    for i in range(n**2):
-        axs[i].imshow(hists[i])
-        axs[i].axis("off")
+def compute_ratemaps(x, y, p, bins = 32):
+    # Compute ratemaps for each unit given positions (x,y) and rates p 
+    hists = scipy.stats.binned_statistic_2d(x,y, p.T, bins = bins)[0]
     return hists
 
-def construct_exponential(sA, sB, Gr, s = 1):
-    R = torch.matrix_exp(s*Gr)
-    A = R.T@sA@R
-    B = R.T@sB@R
-    return A, B, R
+def random_orthogonal_matrix(n):
+    # Create random nxn orthogonal matrix R 
+    R = torch.tensor(scipy.stats.ortho_group.rvs(n))
+    R = R.to(torch.float32)
+    return R
+
+def starting_state(R):
+    p0 = R.T@torch.ones(len(R), dtype=torch.float32)/np.sqrt(len(R))
+    p0 = p0.to(torch.float32)
+    return p0
 
 def rectify(x): # relu
     return np.maximum(x, 0)
-
-def block_diag(fill_vals):
-    # Helper function to create block-diagonal skew-symmetric matrices
-    blocks = []
-    for i in range(len(fill_vals)):
-        block = torch.zeros((2,2))
-        
-        block[0,1] = fill_vals[i]
-        block[1,0] = -block[0,1]
-        blocks.append(block)
-    return torch.block_diag(*blocks)
 
 def batch_inference(model, r, p0):
     p_ = []
@@ -77,8 +66,7 @@ class SimpleDatasetMaker(object):
         return torch.tensor(r.astype('float32'), device = device), torch.tensor(v.astype('float32'), device = device)
 
 
-
-def ratemap_collage(ratemaps, cols=5, figsize=(5, 5), cmap="viridis", vmin=None, vmax=None, **kwargs):
+def ratemap_collage(ratemaps, rows = 5, cols=5, figsize=(5, 5), cmap="viridis", vmin=None, vmax=None, **kwargs):
     """ plot collage of ratemaps
 
     Args:
@@ -89,14 +77,16 @@ def ratemap_collage(ratemaps, cols=5, figsize=(5, 5), cmap="viridis", vmin=None,
         cmap (str, optional): Matplotlib colormap. Defaults to "viridis".
 
     """
-    ratio = len(ratemaps) // cols 
-    rows = ratio if ((len(ratemaps) % cols) == 0) else ratio + 1
     fig, axs = plt.subplots(cols, rows, figsize=figsize, **kwargs)
 
-    for i in range(len(ratemaps)):
-        axs[i // cols, i % cols].imshow(ratemaps[i].T, origin="lower", interpolation=None, cmap=cmap, vmin=vmin, vmax=vmax)
-        axs[i // cols, i % cols].axis("off")
-    
+    count = 0
+    for row in range(rows):
+        for col in range(cols):
+            axs[col, row].axis("off")
+            if count < len(ratemaps):
+                axs[col, row].imshow(ratemaps[count], cmap=cmap, vmin=vmin, vmax=vmax)
+            count += 1
+    plt.subplots_adjust(wspace=0.1, hspace=0.1)
     return fig, axs
 
 
@@ -110,13 +100,9 @@ def orthogonal_basis(q0):
     for i in range(len(q0) - 1):
         
         q = np.random.uniform(-1, 1, len(q0)) # i-th column of A
-        
         for j in range(len(basis)):
             z = basis[j]
             q = q - np.dot(q, z) * z
-        
-        if np.array_equal(q, np.zeros(q.shape)):
-            raise np.linalg.LinAlgError("The column vectors are not linearly independent")
         
         # normalize q
         q = q / np.sqrt(np.dot(q, q))
