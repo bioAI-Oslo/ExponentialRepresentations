@@ -1,0 +1,187 @@
+"""Local learning rule for skew-symmetric connectivity (Appendix J.4).
+
+The generators need not be hard-coded. Appendix J.4 proposes a local, biologically
+plausible rule driven by time-lagged antisymmetric correlations,
+
+    dW_ij = eta (r_i(t) r_j(t + lag) - r_j(t) r_i(t + lag)) - alpha W_ij
+
+and shows it drives W toward the skew-symmetry that Sec. 2.3 requires.
+
+Decomposing W into S = W + W^T and A = W - W^T separates the dynamics cleanly.
+The Hebbian term H is antisymmetric by construction, so it contributes nothing to
+S, whose evolution is the decay alone:
+
+    dS = -alpha S        ->        S(t) = (1 - alpha)^t S(0)
+
+while A is driven by H and stabilised by the decay, giving the steady state
+
+    A* = (2 eta / alpha) <H>_t
+
+So what the rule learns is set entirely by the time-lagged antisymmetric
+correlations in the input. That is worth stating plainly, because it means the
+decay of S is *algebra* rather than evidence — it holds for any input at all,
+including white noise, where `<H>` vanishes and the rule learns only
+fluctuation. The claim with content is the steady state: drive the network with
+activity that is actually being transported by some generator, and A recovers
+the correlations that transport produced.
+
+Appendix J.4 is explicit about the limit: the rule yields *a* skew-symmetric
+matrix, not the commuting pair a coherent spatial map needs.
+
+This module is numpy, like `analysis` and `attractor`.
+"""
+
+import numpy as np
+
+
+def antisymmetric_correlation(rates: np.ndarray, lag: int = 1) -> np.ndarray:
+    """Time-lagged antisymmetric correlation `<r(t) r(t+lag)^T - transpose>`.
+
+    This is `<H>`, the quantity the steady state is proportional to.
+
+    Parameters
+    ----------
+    rates : numpy.ndarray
+        Activity over time, shape (n_steps + lag, n_units).
+    lag : int, optional
+        Temporal lag in timesteps.
+
+    Returns
+    -------
+    numpy.ndarray
+        Antisymmetric correlation matrix of shape (n_units, n_units).
+    """
+    early, late = rates[:-lag], rates[lag:]
+    correlation = early.T @ late / len(early)
+    return correlation - correlation.T
+
+
+def steady_state_antisymmetric(rates: np.ndarray, eta: float, alpha: float, lag: int = 1) -> np.ndarray:
+    """Predicted steady state `A* = (2 eta / alpha) <H>` (Appendix J.4).
+
+    Parameters
+    ----------
+    rates : numpy.ndarray
+        Activity over time, shape (n_steps + lag, n_units).
+    eta : float
+        Learning rate.
+    alpha : float
+        Weight decay.
+    lag : int, optional
+        Temporal lag in timesteps.
+
+    Returns
+    -------
+    numpy.ndarray
+        Predicted antisymmetric part `W - W^T`, shape (n_units, n_units).
+    """
+    return (2 * eta / alpha) * antisymmetric_correlation(rates, lag)
+
+
+def learn_connectivity(
+    rates: np.ndarray,
+    eta: float = 0.01,
+    alpha: float = 0.001,
+    lag: int = 1,
+    W0: np.ndarray | None = None,
+    seed: int | None = None,
+    record: bool = False,
+) -> tuple[np.ndarray, dict[str, np.ndarray] | None]:
+    """Run the antisymmetric Hebbian rule over an activity sequence.
+
+    Parameters
+    ----------
+    rates : numpy.ndarray
+        Activity over time, shape (n_steps + lag, n_units). The update is applied
+        `n_steps` times.
+    eta : float, optional
+        Learning rate.
+    alpha : float, optional
+        Weight decay.
+    lag : int, optional
+        Temporal lag in timesteps.
+    W0 : numpy.ndarray, optional
+        Initial weights, shape (n_units, n_units). Default: Gaussian with scale
+        0.1, drawn from `seed`.
+    seed : int, optional
+        Seed for the default initialisation. Ignored when `W0` is given.
+    record : bool, optional
+        Also return the RMS of the symmetric and antisymmetric parts at every
+        step. Cheap — two scalars per step, not two matrices.
+
+    Returns
+    -------
+    tuple[numpy.ndarray, dict[str, numpy.ndarray] | None]
+        Final weights of shape (n_units, n_units), and — when `record` — a dict
+        with `symmetric_rms` and `antisymmetric_rms`, each of shape (n_steps,).
+    """
+    n_units = rates.shape[1]
+    W = np.random.default_rng(seed).standard_normal((n_units, n_units)) * 0.1 if W0 is None else W0.copy()
+
+    n_steps = len(rates) - lag
+    history = {"symmetric_rms": np.zeros(n_steps), "antisymmetric_rms": np.zeros(n_steps)} if record else None
+
+    for t in range(n_steps):
+        if record:
+            history["symmetric_rms"][t] = np.sqrt(np.mean((W + W.T) ** 2))
+            history["antisymmetric_rms"][t] = np.sqrt(np.mean((W - W.T) ** 2))
+
+        outer = np.outer(rates[t], rates[t + lag])
+        W = W + eta * (outer - outer.T) - alpha * W
+
+    return W, history
+
+
+def transported_activity(
+    generator: np.ndarray,
+    n_steps: int,
+    dt: float = 0.05,
+    n_trajectories: int = 1,
+    seed: int | None = None,
+) -> np.ndarray:
+    """Activity generated by transporting a state with a known skew generator.
+
+    The input the rule is *meant* for: `r(t + 1) = exp(dt G) r(t)`, i.e. a
+    population being carried along by an exponential map. Feeding this in makes
+    the steady state a statement about recovering the transport that produced
+    the activity, rather than about white noise.
+
+    Several trajectories from different starting states can be concatenated;
+    a single orbit explores only a low-dimensional slice of the state space, so
+    `<H>` from one trajectory is correspondingly rank-limited.
+
+    Parameters
+    ----------
+    generator : numpy.ndarray
+        Skew-symmetric generator, shape (n_units, n_units).
+    n_steps : int
+        Timesteps per trajectory.
+    dt : float, optional
+        Step size, so each step applies `exp(dt * generator)`.
+    n_trajectories : int, optional
+        Number of trajectories to concatenate.
+    seed : int, optional
+        Seed for the starting states.
+
+    Returns
+    -------
+    numpy.ndarray
+        Activity of shape (n_trajectories * n_steps, n_units).
+    """
+    import scipy
+
+    rng = np.random.default_rng(seed)
+    step = scipy.linalg.expm(dt * generator)
+
+    trajectories = []
+    for _ in range(n_trajectories):
+        r = rng.standard_normal(len(generator))
+        r /= np.linalg.norm(r)
+
+        activity = np.zeros((n_steps, len(generator)))
+        for t in range(n_steps):
+            activity[t] = r
+            r = step @ r
+        trajectories.append(activity)
+
+    return np.concatenate(trajectories)
