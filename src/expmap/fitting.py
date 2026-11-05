@@ -14,7 +14,11 @@ prediction error of Eq. 1 over random displacements,
 The commutator penalty is what makes the result a *path-integrating* solution
 rather than merely a good interpolator: without it nothing forces the two
 generators to be simultaneously diagonalisable, and displacements would not
-compose.
+compose. `GeneratorFit` is that penalised fit. `CommutingGeneratorFit` removes
+the penalty by parameterising the generators as the framework builds them,
+`G = R^T Sigma R` with a shared orthogonal `R`, so they commute exactly and the
+weight `w` disappears; it is the procedure of the camera-ready version, the
+penalised fit that of the submitted one.
 
 Skew-symmetry is imposed structurally rather than penalised, by learning a free
 matrix A and taking `G = A - A^T`. Appendix K enforces it "to guarantee
@@ -256,6 +260,142 @@ class GeneratorFit:
         with torch.no_grad():
             p = self.transport(p0.expand(len(dr), -1), dr)
         return p.T.reshape(self.n_units, n_bins, n_bins)
+
+
+class CommutingGeneratorFit(GeneratorFit):
+    """Fit generators that commute by construction (App. K, place-cell variant).
+
+    The generators are parameterised the way the framework builds them,
+
+        Gx = R^T Sigma_x R,   Gy = R^T Sigma_y R,
+
+    with one orthogonal matrix `R = exp(B - B^T)` and block-diagonal skew
+    matrices `Sigma_x`, `Sigma_y` holding the wavevector pairs
+    `(lambda_ix, lambda_iy)` (Sec. 2.2, App. C). They share an eigenbasis, so
+    `[Gx, Gy] = 0` exactly and path integration is path independent without a
+    penalty. The loss is the one-step prediction error alone, and the fitted
+    parameters are interpretable: the wavevectors are the population's spatial
+    spectrum and `R` its mixing.
+
+    Transport is evaluated in closed form as the block rotations of App. C,
+
+        alpha_i(r + dr) = rot(dr . lambda_i) alpha_i(r),   alpha = R p,
+
+    rather than through `matrix_exp`, which is what makes a step cheap.
+
+    An odd `n_units` leaves one eigenvalue of each skew generator at zero, a
+    direction of population space that does not transport; an even `n_units`
+    can learn the same by driving a wavevector pair to zero.
+
+    Parameters
+    ----------
+    n_units : int
+        Number of recorded units.
+    lr : float, optional
+        Adam learning rate for `B`; the wavevectors use `wavevector_lr`.
+    wavevector_lr : float, optional
+        Adam learning rate for the wavevectors, which live on the scale of
+        the spectrum (several cycles per arena) rather than of `R`.
+    wavevector_scale : float, optional
+        Standard deviation of the Gaussian initialisation of the wavevectors,
+        in cycles per arena half-width (`arena_size`).
+    seed : int, optional
+        Seeds initialisation and displacement sampling.
+
+    Attributes
+    ----------
+    R : torch.Tensor
+        The orthogonal mixing matrix, shape (n_units, n_units).
+    wavevectors : torch.Tensor
+        `(lambda_ix, lambda_iy)` per block, shape (n_units // 2, 2).
+    Gx, Gy : torch.Tensor
+        The generators, derived from `R` and the wavevectors.
+    """
+
+    def __init__(
+        self,
+        n_units: int,
+        lr: float = 1e-3,
+        wavevector_lr: float = 1e-2,
+        wavevector_scale: float = 2.0,
+        seed: int | None = None,
+    ) -> None:
+        rng = np.random.default_rng(seed)
+        self.n_units = n_units
+        self.n_pairs = n_units // 2
+        self.commutator_weight = 0.0
+        self.enforce_skew = True
+
+        self._B = torch.tensor(rng.uniform(-1, 1, (n_units, n_units)) / np.sqrt(n_units), dtype=torch.float32)
+        self._B.requires_grad_(True)
+        self._lam = torch.tensor(wavevector_scale * rng.standard_normal((self.n_pairs, 2)), dtype=torch.float32)
+        self._lam.requires_grad_(True)
+        self.optimizer = torch.optim.Adam(
+            [{"params": [self._B], "lr": lr}, {"params": [self._lam], "lr": wavevector_lr}]
+        )
+        self.loss_history: list[float] = []
+
+        self._generator = torch.Generator()
+        if seed is not None:
+            self._generator.manual_seed(seed)
+
+    @property
+    def R(self) -> torch.Tensor:
+        """Orthogonal mixing matrix, shape (n_units, n_units)."""
+        return torch.matrix_exp(self._B - self._B.T)
+
+    @property
+    def wavevectors(self) -> torch.Tensor:
+        """Wavevector pairs `(lambda_ix, lambda_iy)`, shape (n_units // 2, 2)."""
+        return self._lam
+
+    def _generator_matrix(self, axis: int) -> torch.Tensor:
+        from expmap.generators import block_diag_skew
+
+        Sigma = block_diag_skew(self._lam[:, axis])
+        if self.n_units % 2:
+            Sigma = torch.block_diag(Sigma, torch.zeros(1, 1))
+        R = self.R
+        return R.T @ Sigma @ R
+
+    @property
+    def Gx(self) -> torch.Tensor:
+        """Generator for the x-direction, shape (n_units, n_units)."""
+        return self._generator_matrix(0)
+
+    @property
+    def Gy(self) -> torch.Tensor:
+        """Generator for the y-direction, shape (n_units, n_units)."""
+        return self._generator_matrix(1)
+
+    def transport(self, p0: torch.Tensor, dr: torch.Tensor) -> torch.Tensor:
+        """Apply exp(dx Gx + dy Gy) as block rotations in the eigenbasis (App. C).
+
+        Parameters
+        ----------
+        p0 : torch.Tensor
+            Population vectors, shape (batch, n_units).
+        dr : torch.Tensor
+            Displacements in arena units, shape (batch, 2).
+
+        Returns
+        -------
+        torch.Tensor
+            Transported population vectors, shape (batch, n_units).
+        """
+        R = self.R
+        alpha = p0 @ R.T
+        n = 2 * self.n_pairs
+        pairs = alpha[:, :n].reshape(-1, self.n_pairs, 2)
+        Omega = dr @ self._lam.T
+        c, s = torch.cos(Omega), torch.sin(Omega)
+        rotated = torch.stack([c * pairs[..., 0] - s * pairs[..., 1], s * pairs[..., 0] + c * pairs[..., 1]], dim=-1)
+        alpha = torch.cat([rotated.reshape(-1, n), alpha[:, n:]], dim=1)
+        return alpha @ R
+
+    def loss(self, p0: torch.Tensor, pt: torch.Tensor, dr: torch.Tensor) -> torch.Tensor:
+        """One-step prediction error; commutativity needs no penalty here."""
+        return torch.mean((pt - self.transport(p0, dr)) ** 2)
 
 
 def generator_diagnostics(fit: GeneratorFit) -> dict[str, float]:

@@ -12,6 +12,7 @@ import torch
 
 import expmap
 from expmap.fitting import (
+    CommutingGeneratorFit,
     GeneratorFit,
     generator_diagnostics,
     pixels_to_arena,
@@ -221,3 +222,48 @@ class TestDiagnostics:
     def test_enforced_generators_report_zero_regardless_of_training(self):
         diagnostics = generator_diagnostics(GeneratorFit(n_units=32, enforce_skew=True, seed=0))
         assert diagnostics["Gx_symmetric_fraction"] < 1e-6
+
+
+class TestCommutingGeneratorFit:
+    def test_transport_is_the_matrix_exponential(self):
+        """The closed-form block rotations must equal exp(dx Gx + dy Gy), for odd and even N."""
+        for n_units in (24, 25):
+            fit = CommutingGeneratorFit(n_units=n_units, seed=0)
+            p0 = torch.randn(6, n_units)
+            dr = torch.randn(6, 2)
+            with torch.no_grad():
+                closed_form = fit.transport(p0, dr)
+                Q = torch.matrix_exp(dr[:, 0, None, None] * fit.Gx + dr[:, 1, None, None] * fit.Gy)
+                expected = torch.bmm(Q, p0[..., None]).squeeze(-1)
+            torch.testing.assert_close(closed_form, expected, atol=1e-5, rtol=1e-4)
+
+    def test_generators_commute_and_are_skew_by_construction(self):
+        fit = CommutingGeneratorFit(n_units=25, seed=1)
+        d = generator_diagnostics(fit)
+        assert d["commutator_rms"] < 1e-5
+        assert d["Gx_symmetric_fraction"] < 1e-5 and d["Gy_symmetric_fraction"] < 1e-5
+        R = fit.R.detach()
+        torch.testing.assert_close(R @ R.T, torch.eye(25), atol=1e-5, rtol=0)
+
+    def test_recovers_transport_from_synthetic_data(self):
+        """Same held-out check as for GeneratorFit, without any penalty."""
+        ratemaps, _, _ = synthetic_ratemaps()
+        fit = CommutingGeneratorFit(n_units=ratemaps.shape[-1], seed=0)
+        history = fit.fit(ratemaps, n_steps=1500, progress=False)
+        assert np.mean(history[-50:]) < np.mean(history[:50]) / 20
+
+        n_bins = ratemaps.shape[0]
+        centre = n_bins // 2
+        held_out = pixels_to_arena(torch.tensor([[5, -5]]), n_bins)
+        with torch.no_grad():
+            predicted = fit.transport(ratemaps[centre, centre][None], held_out)[0]
+        truth = ratemaps[centre + 5, centre - 5]
+        error = (predicted - truth).pow(2).mean().sqrt() / truth.pow(2).mean().sqrt()
+        assert error < 0.2, f"relative error on a held-out step: {error:.3f}"
+
+    def test_generate_matches_generator_fit_interface(self):
+        ratemaps, _, _ = synthetic_ratemaps()
+        fit = CommutingGeneratorFit(n_units=ratemaps.shape[-1], seed=0)
+        maps = fit.generate(ratemaps[8, 8], n_bins=16, extent=2)
+        assert maps.shape == (ratemaps.shape[-1], 16, 16)
+        torch.testing.assert_close(maps.pow(2).sum(0), maps.pow(2).sum(0).mean().expand(16, 16), atol=1e-4, rtol=1e-4)
