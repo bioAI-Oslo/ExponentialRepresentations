@@ -31,7 +31,7 @@ reference implementation of published results — changes to it need the verific
 | `src/expmap/` | The library |
 | `tests/` | pytest suite; pure algebra and synthetic input, no data needed |
 | `notebooks/` | `.ipynb` notebooks. `01`–`09` reproduce the manuscript figures; `10`–`16` are the experimental fitting — see below |
-| `notebooks/experimental_data/` | Helpers the fitting notebooks import: `ca1.py` (loader, ratemaps, field metrics), `extract_ca1.py` (raw release → `data/ca1_events.npz`), `galleries.py`. The other scripts there are untracked one-off sweeps |
+| `notebooks/experimental_data/` | Helpers the fitting notebooks import: `ca1.py` (loader, ratemaps, field metrics), `extract_ca1.py` (raw release → `data/ca1_events.npz`), `galleries.py` |
 | `data/` | The rate maps and fits behind Sec. 3.2 / App. K, with sources and licences in `data/README.md` — see Data |
 | `figures/` | Generated output, `.svg` and `.png` side by side |
 | `paper/` | A mirror of the manuscript source, edited elsewhere: read it, do not edit it |
