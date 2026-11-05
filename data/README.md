@@ -5,7 +5,7 @@ Everything else in this directory is generated locally and is not tracked.
 
 | File | Contents | Written by |
 | --- | --- | --- |
-| `gc_ratmaps.npy` | Rate maps of 102 grid cells, shape `(102, 32, 32)`, one 32 × 32 map per unit over a square arena. Rate units are arbitrary. | — |
+| `gc_ratmaps.npy` | Rate maps of 102 grid cells, one module of one rat, shape `(102, 32, 32)`, one 32 × 32 map per unit over a square arena. Rate units are arbitrary. | — |
 | `gc_fit_commuting.npz` | The generators fitted to the grid-cell maps (`Gx`, `Gy`, `R`, `wavevectors`), the maps themselves (`experimental`), the regenerated maps and the extrapolation from the central three quarters of the arena. | `notebooks/12_grid_fitting_commuting.ipynb` |
 | `ca1_fit_one_animal_si0.50.npz` | The same for 103 CA1 units of one rat. The rate maps the fit was made on are stored under `experimental`, shape `(103, 32, 32)`, with the recording date, tetrode and cluster of every unit. | `notebooks/15_ca1_one_animal_fitting.ipynb` |
 
@@ -34,8 +34,9 @@ them.
 ## Regenerating the CA1 fit
 
 `notebooks/15_ca1_one_animal_fitting.ipynb` reads `data/ca1_events.npz`, the spike times and
-positions extracted from the raw release. That file is 55 MB and is not tracked. To rebuild it,
-download the dataset from EBRAINS into `ca1_data/` and run
+positions extracted from the raw release, and so do the earlier CA1 notebooks 10, 11 and 13.
+That file is 55 MB and is not tracked. To rebuild it, download the dataset from EBRAINS into
+`ca1_data/` and run
 
 ```bash
 uv run python notebooks/experimental_data/extract_ca1.py ca1_data data/ca1_events.npz

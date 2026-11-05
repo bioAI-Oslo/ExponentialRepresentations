@@ -12,6 +12,8 @@ Unlike "black-box" deep learning models, this framework constructs spatial maps 
 - **Translational Invariance:** Achieved via skew-symmetric generators ($G^T = -G$), ensuring orthogonal transformations.
 - **Metric Preservation:** Arises when generator eigenvalues form sets of roots of unity, naturally recovering hexagonal grid patterns.
 
+The same construction can be fitted to recorded populations. `expmap.fitting` recovers the mixing matrix and the wavevectors of the generators from grid cell and place cell rate maps, and the fitted model extrapolates beyond the arena it was fitted in (Sec. 3.2, App. K).
+
 ## Installation
 
 ```bash
@@ -75,21 +77,51 @@ current_rep = model(torch.tensor([[0.0, 0.0]]), p0)
 similarity = query(current_rep[0], memory)
 ```
 
+### Fitting to recorded rate maps
+
+```python
+import numpy as np
+import torch
+from expmap.fitting import CommutingGeneratorFit
+
+experimental = np.load("data/gc_ratmaps.npy").astype("float32")  # (units, bins_x, bins_y)
+ratemaps = torch.tensor(np.transpose(experimental, (1, 2, 0)))  # position first
+
+# Generators that commute and are skew-symmetric by construction
+fit = CommutingGeneratorFit(n_units=len(experimental), seed=0)
+fit.fit(ratemaps, n_steps=20000)
+
+# Regenerate the arena from its centre, then an arena twice the size
+centre = ratemaps[16, 16]
+generated = fit.generate(centre, n_bins=32)
+beyond = fit.generate(centre, n_bins=32, extent=2.0)
+```
+
 ## Notebooks
 
 Notebooks reproduce the figures from the manuscript:
 
-| Notebook                                         | Description                                                | Figure          |
-| ------------------------------------------------ | ---------------------------------------------------------- | --------------- |
-| `01_metric_preserving_representations.ipynb`     | Grid cell-like representations from roots of unity         | Fig. 2          |
-| `02_similarity_preserving_representations.ipynb` | Place field-like representations from Gaussian eigenvalues | Fig. 3          |
-| `03_context_dependent_remapping.ipynb`           | Context-dependent remapping                                | Fig. 3          |
-| `04_expmap_cann.ipynb`                           | CANN on-manifold dynamics                                  | Fig. 4          |
-| `05_binding_and_bundling.ipynb`                  | Multi-map navigation                                       | Fig. 5          |
-| `06_bessel_zeros.ipynb`                          | Bessel function zeros and grid scale ratios                | Fig. 6          |
-| `07_roots_of_unity.ipynb`                        | Roots of unity visualizations                              | Fig. 2 (detail) |
-| `08_experimental_fitting.ipynb`                  | Fitting to experimental grid cell data                     | Fig. 9, 10      |
-| `09_learning_rule.ipynb`                         | Biologically plausible learning rule                       | Appendix J.4    |
+| Notebook                                         | Description                                                | Figure           |
+| ------------------------------------------------ | ---------------------------------------------------------- | ---------------- |
+| `01_metric_preserving_representations.ipynb`     | Grid cell-like representations from roots of unity         | Fig. 2           |
+| `02_similarity_preserving_representations.ipynb` | Place field-like representations from Gaussian eigenvalues | Fig. 3           |
+| `03_context_dependent_remapping.ipynb`           | Context-dependent remapping                                | Fig. 3           |
+| `04_expmap_cann.ipynb`                           | CANN on-manifold dynamics                                  | Fig. 4           |
+| `05_binding_and_bundling.ipynb`                  | Multi-map navigation                                       | Fig. 5           |
+| `06_bessel_zeros.ipynb`                          | Bessel function zeros and grid scale ratios                | Fig. 6           |
+| `07_roots_of_unity.ipynb`                        | Roots of unity visualizations                              | Fig. 2 (detail)  |
+| `08_experimental_fitting.ipynb`                  | Penalised fit to grid cells (superseded by 12)             | —                |
+| `09_learning_rule.ipynb`                         | Biologically plausible learning rule                       | Appendix J.4     |
+| `10_ca1_place_cells.ipynb`                       | CA1 place-cell population and unit selection, all rats     | —                |
+| `11_ca1_fitting.ipynb`                           | Penalised fit to CA1 place cells (superseded by 13, 15)    | —                |
+| `12_grid_fitting_commuting.ipynb`                | Commuting-generator fit to grid cells                      | Sec. 3.2, App. K |
+| `13_ca1_fitting_commuting.ipynb`                 | Commuting fit to pooled CA1 cells (superseded by 15)       | —                |
+| `14_paper_figures.ipynb`                         | Figure panels from the saved fits                          | Sec. 3.2, App. K |
+| `15_ca1_one_animal_fitting.ipynb`                | Commuting-generator fit to the CA1 units of one animal     | Sec. 3.2, App. K |
+| `16_similarity_structure.ipynb`                  | Similarity structure of the data and the fitted models     | —                |
+
+Notebooks 12, 14 and 16 run from a clone. Notebooks 10, 11, 13 and 15 need the CA1 recordings
+extracted first; see [data/README.md](data/README.md).
 
 ## Package Structure
 
@@ -99,11 +131,15 @@ Notebooks reproduce the figures from the manuscript:
   - `linalg.py` — Orthogonal matrices, starting states, basis construction
   - `analysis.py` — Ratemaps, batch inference, similarity computation
   - `navigation.py` — Hyperdimensional bundling, binding, and querying
+  - `attractor.py` — Continuous attractor network whose on-manifold limit is the exponential map
+  - `fitting.py` — Fitting generators to recorded rate maps (the only module that learns)
+  - `plasticity.py` — Local learning rule for skew-symmetric connectivity
   - `simulation.py` — Trajectory and position generation
   - `plotting.py` — Visualization utilities
 - `notebooks/` — Reproduce manuscript figures
-- `data/` — Experimental data and pre-computed parameters
-- `tests/` — Unit tests
+- `notebooks/experimental_data/` — Loading and extraction helpers for the CA1 recordings
+- `data/` — Rate maps and fitted generators for the experimental fitting (see `data/README.md`)
+- `tests/` — Unit tests (`uv run pytest`)
 
 ## Citation
 
@@ -119,4 +155,7 @@ If you use this code or framework in your research, please cite:
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
+The code is released under the MIT License. See [LICENSE](LICENSE) for details.
+
+The files in `data/` are derived from published recordings and carry the licences of their
+sources; the CA1 fit is distributed under CC BY-SA 4.0. See [data/README.md](data/README.md).
