@@ -1,7 +1,13 @@
 ### Custom ###
-data/
+# data/ is ignored except the rate maps and fits behind Sec. 3.2 / App. K (see data/README.md)
+data/*
+!data/README.md
+!data/gc_ratmaps.npy
+!data/gc_fit_commuting.npz
+!data/ca1_fit_one_animal_si0.50.npz
 graveyard/
-figures/
+# anchored, so that .claude/skills/figures/ is not caught
+/figures/
 *.png
 *.csv
 .agent/
@@ -11,7 +17,8 @@ reports/
 exploration/
 PROGRESS.md
 KNOWN_ISSUES.md
-
+ca1_data/
+paper/
 
 # Created by https://www.toptal.com/developers/gitignore/api/python,linux,macos,visualstudiocode,jupyternotebooks,latex,windows
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,linux,macos,visualstudiocode,jupyternotebooks,latex,windows
