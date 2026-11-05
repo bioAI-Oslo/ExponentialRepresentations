@@ -1,6 +1,6 @@
 ---
 name: reading-papers
-description: How to read the PDFs in pdfs/ and other reference material using pdftotext rather than opening the binary directly. Use when asked to read, summarise, extract a derivation from, or cite a PDF, when checking what our own manuscript actually says, or when comparing our framework against a published approach.
+description: How to read the PDFs in pdfs/, the manuscript source mirrored in paper/, and other reference material - pdftotext rather than opening the binary directly. Use when asked to read, summarise, extract a derivation from, or cite a PDF, when checking what our own manuscript actually says, or when comparing our framework against a published approach.
 ---
 
 # Reading PDFs
@@ -30,15 +30,24 @@ Then read the text file in chunks, starting from the section offsets rather than
 
 ## What is in `pdfs/`
 
-- `Exp_map_spatial_representations.pdf` — our manuscript, the NeurIPS submission. The source
-  of truth for what the framework claims and for the section and appendix numbering used
-  throughout the code. `theory-context` carries a map of its sections and appendices; when you
-  need the actual derivation, come here.
-- `Constraining R Matrix for Grid Cells.pdf` — reference material for the R exploration strand.
+- `Exp_map_spatial_representations.pdf` — our manuscript as submitted to NeurIPS. `theory-context`
+  carries a map of its sections and appendices; when you need the actual derivation, come here.
 
 The appendices run A through L and carry most of the derivations; section numbering in the body
 stops at 5. Appendix headings sit under the NeurIPS checklist in the text dump, well past the
 references, so grep for the heading rather than scrolling.
+
+`pdfs/` is not tracked, so a fresh clone does not have it; say so rather than guessing at what the
+paper states.
+
+## The manuscript source, when it is there
+
+A working checkout may also hold `paper/`, a mirror of the manuscript's LaTeX (`main.tex`,
+`appendix.tex`, `references.bib`). When it is present it is newer than the PDF — the camera-ready
+version added the experimental fitting as Sec. 3.2, which the submitted PDF does not have — and it
+is the source of truth for section numbering and wording. Grep the `.tex` directly; it needs no
+conversion. It is a mirror of a document edited elsewhere and can lag behind it, so before quoting
+a passage as current, say when the mirror was last synced if you know, and never edit it.
 
 ## Reading for a purpose
 

@@ -14,15 +14,16 @@ what actually goes wrong in this repository, in the order worth looking for it.
 Before reading anything:
 
 ```bash
-uv run ruff check src/ tests/
+uv run ruff check .
 uv run ruff format src/ tests/
 uv run pytest
 ```
 
-Scope the ruff runs. A bare `ruff check .` reports ~58 pre-existing errors in `notebooks/` — the
-`lint.exclude` setting meant to prevent that does not work (`KNOWN_ISSUES.md`) — and a real finding
-in the diff will be lost in them. `src/` is clean today, so any error under `src/` came from the
-change under review.
+Scope the format run. The `lint.exclude` setting meant to exempt `notebooks/` does not work
+(`KNOWN_ISSUES.md`), so ruff sees them: `ruff check .` passes on the whole tree today, so any
+error, in a notebook or under `src/`, came from the change under review. `ruff format .` would
+rewrite several older notebooks that are not part of the diff; format only what the change
+touches.
 
 Fix what they report. There is no type checker configured, so nothing will catch a wrong
 annotation for you — read the signatures.
@@ -79,9 +80,12 @@ The local equivalent of a units bug: it does not crash.
   meaningless; the autocorrelogram has no ring.
 - **NaN propagation.** Empty occupancy bins become NaN. `nansum` and `nanmean` treat them as
   neutral, which is right sometimes and wrong sometimes — ask which.
-- **Seeding.** Any figure-producing change must have a recorded seed. `generate_uniform_positions`
-  and `SimpleDatasetMaker` use global RNG state, so a notebook that reproduces only when cells are
-  run in order is not reproducible.
+- **Seeding.** Any figure-producing change must have a recorded seed. The sampling functions take
+  a `seed` that defaults to `None`, so check that the call passes one; a notebook that reproduces
+  only when cells are run in order is not reproducible.
+- **Fits.** A fitted model is equinorm, path independent and translation invariant whether or not
+  it fits. Ask for the comparison with the data, on a part of the arena the fit did not see, with
+  a chance level beside it.
 - **Changed defaults.** A modified default in `grid_cell_model`, `place_cell_model` or
   `remapping_model` silently changes published figures. It must be called out, not folded into a
   larger diff.

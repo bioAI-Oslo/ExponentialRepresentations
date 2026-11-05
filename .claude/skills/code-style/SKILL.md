@@ -44,13 +44,16 @@ produce a ratemap that looks fine, check it.
 ## Where code lives
 
 - `src/expmap/` — the library: importable, testable, deterministic. Organised along the
-  mathematical structure (`model`, `generators`, `linalg`, `analysis`, `navigation`, `simulation`,
-  `plotting`); keep that split.
+  mathematical structure (`model`, `generators`, `linalg`, `analysis`, `navigation`, `attractor`,
+  `fitting`, `plasticity`, `simulation`, `plotting`); keep that split.
 - `tests/` — runs on pure algebra and synthetic input; never needs `data/`.
-- `notebooks/` — exploration and figure generation. Analysis logic is allowed here while it is
-  being worked out, but anything reusable, or that a paper figure depends on, belongs in the
-  package. A notebook that has grown its own model class is a signal to move it.
-- `reports/` — prose and results of the exploration strand, not code.
+- `notebooks/` — figure generation and the experimental fitting. Analysis logic is allowed here
+  while it is being worked out, but anything reusable, or that a paper figure depends on, belongs
+  in the package. A notebook that has grown its own model class is a signal to move it. Figure
+  code lives in a numbered notebook, not in a script beside it.
+- `notebooks/experimental_data/` — data loading and extraction for the CA1 recordings. Plain
+  modules the notebooks import; they stay out of the package because they are specific to one
+  dataset.
 
 ## Functions and classes
 
@@ -111,8 +114,8 @@ silently-detached number.
 - **Seed every stochastic operation.** `rng = np.random.default_rng(seed)`, threaded through as a
   parameter, and a `seed=` argument on anything that samples. Never the module-level
   `np.random.*` functions — `NPY002` is switched off in ruff so nothing will catch you.
-  `random_orthogonal_matrix` is the pattern to copy; `SimpleDatasetMaker`,
-  `generate_uniform_positions` and `orthogonal_basis` are not (see `KNOWN_ISSUES.md`).
+  `random_orthogonal_matrix` is the pattern to copy. Every sampling function in the package now
+  takes a `seed`; a new one that does not is a regression.
 - Handle genuinely degenerate input — an empty ratemap, a zero-variance autocorrelogram — by
   returning a documented sentinel (`np.nan`) rather than letting a divide-by-zero warning through.
 
@@ -143,9 +146,10 @@ Configured in `pyproject.toml`: `line-length = 120`, `target-version = "py313"`,
 `E4`, `E7`, `E9`, `F`, `I`, `N`, `UP`, `C4`, ignoring `N803`, `N806`, `N812`, `NPY002`.
 
 `lint.exclude = ["notebooks"]` is *meant* to exempt the notebooks and does not work (see
-`KNOWN_ISSUES.md`), so a bare `uv run ruff check .` currently reports ~58 pre-existing notebook
-errors and buries anything you introduced. **Run `uv run ruff check src/ tests/`** unless you are
-deliberately working on a notebook. `src/` is clean; keep it that way.
+`KNOWN_ISSUES.md`), so ruff lints them too. The whole tree passes `uv run ruff check .`; keep it
+that way, notebooks included. `ruff format` is a different matter: several older notebooks are
+not formatted, so **format `src/ tests/` and the notebook you are working on, never `.`** — a
+blanket format rewrites notebooks nobody asked you to touch.
 
 - `I` — imports are sorted by ruff; don't hand-order them.
 - `UP` — modern syntax: `X | None`, not `Optional[X]`.

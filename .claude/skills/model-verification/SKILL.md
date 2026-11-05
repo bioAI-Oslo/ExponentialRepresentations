@@ -115,8 +115,8 @@ correlation against rotations, `min(60°, 120°) − max(30°, 90°, 150°)`. Th
 - Sanity-check on synthetic input first: an ideal three-plane-wave hexagonal pattern should score
   well above 0.37, an `M = 2` square pattern near or below zero, and white noise near zero.
 - For a population claim, report the distribution, not the mean. A mean grid score conflates "all
-  cells weakly hexagonal" with "a few strong grid cells among mixed-selectivity units", and
-  telling those apart is the entire point of the R exploration.
+  cells weakly hexagonal" with "a few strong grid cells among mixed-selectivity units", and those
+  are different claims.
 - A control that fits this framework: compare against representations generated from the same
   spectrum with the phases or the eigenvalue angles randomised, so hexagonality is destroyed while
   the frequency content is kept.
@@ -130,13 +130,12 @@ rng = np.random.default_rng(seed)
 R = random_orthogonal_matrix(N, seed=seed)
 ```
 
-Two traps in the current code:
+Two things to know about the current code:
 
-- `simulation.generate_uniform_positions` uses the global `torch.rand`, and
-  `SimpleDatasetMaker.generate_dataset` and `linalg.orthogonal_basis` use the global
-  `np.random.*`. None take a seed. Ruff's `NPY002` is switched off so nothing flags it. Seed
-  globally at the top of a notebook or script (`torch.manual_seed`, `np.random.seed`) until these
-  take an `rng`, and say in the figure script which seed produced the figure.
+- Every sampling function in the package takes a `seed` (`generate_uniform_positions`,
+  `SimpleDatasetMaker`, `orthogonal_basis`, the eigenvalue samplers, the fits), and it defaults to
+  `None`. Ruff's `NPY002` is switched off, so nothing flags a call that leaves it out. Pass the
+  seed explicitly and say in the notebook which seed produced the figure.
 - `place_cell_model` derives the y-eigenvalue seed as `seed + 1`. Adjacent seeds therefore share
   a spectrum across x and y — avoid running a sweep over consecutive seeds and treating the draws
   as independent.
@@ -145,6 +144,27 @@ An R-invariance check is the cheapest end-to-end reproducibility test available 
 the population similarity under several different `R` with the canonical `p0`. It must come out
 identical. If it does not, either `p0` is not canonical or something in the chain is not
 orthogonal.
+
+## Fitted models
+
+`fitting.py` is the one place where the right answer is not derivable, so the checks split in two.
+
+- **By construction, so a check of the code only.** For `CommutingGeneratorFit` the commutator is
+  zero, `‖p‖` is constant over any arena, and the similarity is a function of displacement alone.
+  The closed-form transport must equal `matrix_exp` of the generators (`tests/test_fitting.py`),
+  and maps regenerated from the saved `R` and wavevectors must equal the saved reconstruction.
+  None of this says the fit is good.
+- **Results, which need a reference.** Score the regenerated maps per unit against the data, and
+  give the spread, not only the median. For extrapolation, fit the central part of the arena and
+  score the part not trained on, next to chance (the same score with units shuffled) and a
+  trivial control (a flat map at each unit's mean rate). A relative error near 100 % is the
+  control's value for sparse maps, not a failure.
+- **Population claims are tested on the data.** The model's similarity is translation invariant
+  whatever it was fitted to. Whether the recorded population's is, and whether it matches the
+  model's, is the measurement — compare against the data's own displacement-averaged similarity
+  and against a surrogate with each unit's map shifted independently.
+- Fits are one seed. Save the result before computing summary statistics, and state the seed,
+  the number of iterations and the fitted fraction with every number.
 
 ## What counts as verified
 

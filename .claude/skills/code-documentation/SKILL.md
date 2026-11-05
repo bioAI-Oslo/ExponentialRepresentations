@@ -36,8 +36,8 @@ right; `theory-context` carries the full section and appendix map. Appendices H 
 most often confused.
 
 Cite the derivation; don't reproduce it. If you find yourself writing three paragraphs of algebra
-in a docstring, the algebra belongs in `tex/` or `reports/` and the docstring belongs as a pointer
-to it.
+in a docstring, the algebra belongs in the paper or a write-up and the docstring belongs as a
+pointer to it.
 
 ## Docstrings: scale to the function
 
@@ -166,8 +166,8 @@ ARENA_SIZE = 10
 
 The rules are noise, they drift out of alignment the moment a line is edited, and they push the
 actual sentence off to the side. If a script needs visible sections, use the structure the format
-already gives you — a `# %%` cell boundary in `notebooks/10`–`12`, a markdown cell in an `.ipynb`,
-or a function.
+already gives you — a markdown cell in an `.ipynb`, a `# %%` cell boundary in a cell script, or a
+function.
 
 ## Module docstrings
 
@@ -196,7 +196,7 @@ which figure it produces.
   not "Grid Score".
 - **No decorative dashes**: `# Fast vectorized band score`, not `# --- Fast Vectorized Band Score ---`.
 - **ASCII in code, symbols in prose.** Docstrings use `phi`, `lambda`, `sigma`, `G^T = -G`,
-  `[Gx, Gy] = 0`; save `φ`, `Σ`, `λ` for `reports/` and LaTeX.
+  `[Gx, Gy] = 0`; save `φ`, `Σ`, `λ` for notebook markdown and LaTeX.
 - **No commented-out code.** Delete it; git remembers. A stray `# it = torch.randint(...)` is noise
   the next reader has to evaluate.
 - **`# TODO:` and `# FIXME:`** must say what and why: `# TODO: annulus auto-detection fails on
