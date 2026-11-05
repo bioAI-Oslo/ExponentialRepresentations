@@ -1,7 +1,7 @@
 """Hyperdimensional computing operations for exponential map representations.
 
 Implements bundling, binding, querying, and gradient-based navigation using
-the algebraic properties of the exponential map framework (Sec. 3.2,
+the algebraic properties of the exponential map framework (Sec. 3.3,
 Appendix L). The high-dimensional structure of the population vectors
 ensures that randomly sampled representations are nearly orthogonal,
 enabling robust superposition (bundling) and context-dependent filtering
