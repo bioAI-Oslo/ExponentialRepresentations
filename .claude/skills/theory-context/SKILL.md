@@ -125,6 +125,15 @@ structure intact and shifting its absolute phase, which is what biological globa
 like (Sec. 2.5, Fig. 3). Context eigenvalues are Gaussian: there is no metric to preserve on a
 non-spatial variable, only similarity.
 
+A context shift adds the phase `λ_{i,s} s` to the plane wave of the i-th subspace, the same for
+every unit. The spatial cross-correlogram of two units is therefore unchanged by the shift when
+subspaces that share a wavevector also share a context eigenvalue, for any `R` (App. I.1).
+`remapping_model` draws a context eigenvalue per subspace and does not have this property; the
+Fig. 3 construction (notebook 17) gives each hexagonal set its own orientation and mixes `R` within
+a set, so it does. The price is general: a single module with three wavevectors has three context
+eigenvalues and no Gaussian decay, so rigidity within modules and decorrelation across contexts
+pull against each other.
+
 ## Hyperdimensional operations
 
 - **Bundling** (`navigation.bundle`) averages representations of target locations into a composite
@@ -187,9 +196,9 @@ navigation subsection from 3.2 to 3.3.
 | Sec. 2.3 | Orthogonal transformations, translational invariance (Eqs. 2–4) |
 | Sec. 2.4 | Metric preservation and grid scale ratios |
 | Sec. 2.5 | Similarity preservation and context-dependent remapping |
-| Sec. 3.1 | Bridging attractor dynamics and oscillatory interference |
+| Sec. 3.1 | Relation to attractor dynamics and oscillatory interference |
 | Sec. 3.2 | Fitting the exponential map to experimental recordings |
-| Sec. 3.3 | Goal-oriented navigation via hyperdimensional bundling |
+| Sec. 3.3 | Goal-oriented navigation via hyperdimensional bundling and binding |
 | Sec. 3.4 | Accommodated phenomena and predictions |
 | App. A | Methods |
 | App. B | Commuting generators produce path-independent representations |
@@ -199,7 +208,7 @@ navigation subsection from 3.2 to 3.3.
 | App. F | Similarity function derivation |
 | App. G | Designing spatial similarity functions |
 | App. H | Similarity-preserving **spatial** representations — place-like fields, Fig. 7 |
-| App. I | Similarity-preserving **context** representations — the sampling derivation |
+| App. I | Similarity-preserving **context** representations — the sampling derivation; I.1 pairwise phase relations under a context shift |
 | App. J | Attractor networks: J.1 CANN formulation, J.2 path integration and the Magnus expansion, J.3 membrane time constant and grid scale, J.4 local learning rule |
 | App. K | Generative modeling of experimental data |
 | App. L | Binding and bundling: L.1 reward maps, L.2 context-dependent retrieval |

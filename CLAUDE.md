@@ -19,8 +19,8 @@ Appendix K, which live in `expmap/fitting.py` and nowhere else.
 
 ## What is here
 
-`src/expmap/` and `notebooks/01`–`09` reproduce the manuscript figures, and `notebooks/10`–`16` are
-the experimental fitting added for the camera-ready version (Sec. 3.2, App. K). This code is the
+`src/expmap/`, `notebooks/01`–`09` and `17` reproduce the manuscript figures, and `notebooks/10`–`16`
+are the experimental fitting added for the camera-ready version (Sec. 3.2, App. K). This code is the
 reference implementation of published results — changes to it need the verification bar in
 `model-verification`.
 
@@ -30,7 +30,7 @@ reference implementation of published results — changes to it need the verific
 | --- | --- |
 | `src/expmap/` | The library |
 | `tests/` | pytest suite; pure algebra and synthetic input, no data needed |
-| `notebooks/` | `.ipynb` notebooks. `01`–`09` reproduce the manuscript figures; `10`–`16` are the experimental fitting — see below |
+| `notebooks/` | `.ipynb` notebooks. `01`–`09` and `17` reproduce the manuscript figures; `10`–`16` are the experimental fitting — see below |
 | `notebooks/experimental_data/` | Helpers the fitting notebooks import: `ca1.py` (loader, ratemaps, field metrics), `extract_ca1.py` (raw release → `data/ca1_events.npz`), `galleries.py` |
 | `data/` | The rate maps and fits behind Sec. 3.2 / App. K, with sources and licences in `data/README.md` — see Data |
 | `figures/` | Generated output, `.svg` and `.png` side by side |
@@ -48,7 +48,7 @@ in a working checkout. Do not assume them in a fresh clone, and keep references 
 the package, the notebooks and the READMEs. Work that is not part of the paper stays out of
 tracked files altogether, this file and the skills included.
 
-The fitting notebooks:
+The fitting notebooks, and the remapping notebook that replaced `03`:
 
 | Notebook | What it does |
 | --- | --- |
@@ -59,6 +59,7 @@ The fitting notebooks:
 | `15` | Commuting fit to every spatially tuned CA1 unit of one rat — the place-cell fit of the paper — writes `data/ca1_fit_one_animal_si*.npz` |
 | `14` | The Sec. 3.2 / App. K figure panels, drawn from the saved fits without refitting |
 | `16` | Similarity structure of the data against the fitted models; exploratory, not in the paper |
+| `17` | The camera-ready Fig. 3: remapping with a distinct orientation per hexagonal set and a block-diagonal `R`, so that pairwise phase relations within a set are unchanged by a context shift (App. I.1). `03` is the submitted version's construction, kept as the record |
 
 The package is organised along the mathematical structure, and it is worth keeping it that way:
 

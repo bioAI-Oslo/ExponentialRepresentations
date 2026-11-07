@@ -105,7 +105,7 @@ Notebooks reproduce the figures from the manuscript:
 | ------------------------------------------------ | ---------------------------------------------------------- | ---------------- |
 | `01_metric_preserving_representations.ipynb`     | Grid cell-like representations from roots of unity         | Fig. 2           |
 | `02_similarity_preserving_representations.ipynb` | Place field-like representations from Gaussian eigenvalues | Fig. 3           |
-| `03_context_dependent_remapping.ipynb`           | Context-dependent remapping                                | Fig. 3           |
+| `03_context_dependent_remapping.ipynb`           | Context-dependent remapping (submitted version, superseded by 17) | —         |
 | `04_expmap_cann.ipynb`                           | CANN on-manifold dynamics                                  | Fig. 4           |
 | `05_binding_and_bundling.ipynb`                  | Multi-map navigation                                       | Fig. 5           |
 | `06_bessel_zeros.ipynb`                          | Bessel function zeros and grid scale ratios                | Fig. 6           |
@@ -119,6 +119,7 @@ Notebooks reproduce the figures from the manuscript:
 | `14_paper_figures.ipynb`                         | Figure panels from the saved fits                          | Sec. 3.2, App. K |
 | `15_ca1_one_animal_fitting.ipynb`                | Commuting-generator fit to the CA1 units of one animal     | Sec. 3.2, App. K |
 | `16_similarity_structure.ipynb`                  | Similarity structure of the data and the fitted models     | —                |
+| `17_remapping_distinct_wavevectors.ipynb`        | Context-dependent remapping with rigid pairwise phase relations | Fig. 3      |
 
 Notebooks 12, 14 and 16 run from a clone. Notebooks 10, 11, 13 and 15 need the CA1 recordings
 extracted first; see [data/README.md](data/README.md).
