@@ -146,6 +146,12 @@ def remapping_model(M=3, n_copies=50, context_scale=None, seed=None, device="cpu
     remapping. Different context values produce orthogonal spatial maps
     within the same physical environment (Sec. 2.5).
 
+    The context eigenvalues are drawn per subspace, so the copies of a
+    wavevector get different ones and the pairwise phase relations between
+    units are not preserved across contexts (App. I.1). The Fig. 3 construction,
+    with a distinct orientation per hexagonal set and a block-diagonal R, is
+    built from the composable pieces in notebook 17.
+
     Parameters
     ----------
     M : int, optional

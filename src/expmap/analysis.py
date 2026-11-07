@@ -192,6 +192,38 @@ def spatial_autocorrelogram(ratemap):
     return autocorr
 
 
+def periodic_cross_correlograms(ratemaps):
+    """Compute the normalized cross-correlograms of every pair of units on a periodic domain.
+
+    The maps must be sampled on one period of the lattice, so that the circular
+    correlation is the exact spatial cross-correlogram. This is the quantity of
+    App. I.1: a context shift adds a phase per rotational subspace that is the
+    same for every unit, so the cross-correlogram of two units is unchanged by
+    remapping when subspaces that share a wavevector also share a context
+    eigenvalue.
+
+    Parameters
+    ----------
+    ratemaps : numpy.ndarray
+        Maps of shape (n_units, bins_x, bins_y) on one period of the lattice,
+        without NaNs.
+
+    Returns
+    -------
+    numpy.ndarray
+        Cross-correlograms of shape (n_units, n_units, bins_x, bins_y), with
+        zero lag at the center as in `spatial_autocorrelogram`. Entry
+        ``[n, m]`` is the correlation coefficient between unit n and unit m
+        displaced by the lag, so the diagonal is 1 at zero lag. Memory grows
+        with the square of the number of units.
+    """
+    centered = ratemaps - ratemaps.mean(axis=(1, 2), keepdims=True)
+    ft = np.fft.fft2(centered, axes=(1, 2))
+    cc = np.real(np.fft.ifft2(np.conj(ft)[:, None] * ft[None, :], axes=(2, 3)))
+    sd = np.sqrt((centered**2).sum(axis=(1, 2)))
+    return np.fft.fftshift(cc / (sd[:, None] * sd[None, :])[:, :, None, None], axes=(2, 3))
+
+
 def lag_distances(shape):
     """Distance of each autocorrelogram bin from the zero-lag centre.
 

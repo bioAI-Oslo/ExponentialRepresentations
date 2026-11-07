@@ -2,7 +2,15 @@ import numpy as np
 import torch
 
 import expmap
-from expmap.analysis import compute_ratemaps, compute_similarity, rectify
+from expmap.analysis import compute_ratemaps, compute_similarity, periodic_cross_correlograms, rectify
+from expmap.generators import (
+    block_diag_skew,
+    build_generators_with_context,
+    gaussian_eigenvalues,
+    roots_of_unity_eigenvalues,
+)
+from expmap.linalg import random_orthogonal_matrix, starting_state
+from expmap.model import RemappingModel
 
 
 class TestComputeRatemaps:
@@ -160,3 +168,62 @@ class TestRectify:
         x = np.array([1.0, 2.0, 3.0])
         result = rectify(x)
         np.testing.assert_array_equal(result, x)
+
+
+class TestPeriodicCrossCorrelograms:
+    def test_shifted_copy_peaks_at_the_shift(self):
+        rng = np.random.default_rng(0)
+        a = rng.standard_normal((12, 16))
+        shift = (3, -5)
+        maps = np.stack([a, np.roll(a, shift, axis=(0, 1))])
+        cc = periodic_cross_correlograms(maps)
+        assert cc.shape == (2, 2, 12, 16)
+        peak = np.unravel_index(np.argmax(cc[0, 1]), cc[0, 1].shape)
+        assert peak == (6 + shift[0], 8 + shift[1])
+        np.testing.assert_allclose(cc[0, 1][peak], 1.0, atol=1e-12)
+        np.testing.assert_allclose(cc[0, 0, 6, 8], 1.0, atol=1e-12)
+        np.testing.assert_allclose(cc[1, 1, 6, 8], 1.0, atol=1e-12)
+
+
+class TestPhaseRigidity:
+    """Pairwise phase relations under a context shift (App. I.1).
+
+    A context shift adds the phase lambda_{i,s} s to the plane wave of the i-th
+    subspace, the same for every unit. The cross-correlogram of two units is
+    therefore unchanged by the shift when subspaces that share a wavevector
+    also share a context eigenvalue, for any mixing matrix R. With a context
+    eigenvalue per copy of a wavevector, as in `remapping_model`, it is not.
+    """
+
+    M, COPIES, BOX = 3, 4, 16
+
+    def _maps(self, context_eigenvalues, s):
+        N = 2 * self.M * self.COPIES
+        phi = roots_of_unity_eigenvalues(self.M, self.COPIES)
+        R = random_orthogonal_matrix(N, seed=0)
+        Gx, Gy, Gs = build_generators_with_context(
+            block_diag_skew(np.cos(phi)), block_diag_skew(np.sin(phi)), block_diag_skew(context_eigenvalues), R
+        )
+        model, p0 = RemappingModel(Gx, Gy, Gs), starting_state(R)
+        # One period of the hexagonal lattice with unit wavenumber and directions 0, 60, 120 degrees.
+        x = np.linspace(0, 4 * np.pi, self.BOX, endpoint=False)
+        y = np.linspace(0, 4 * np.pi / np.sqrt(3), self.BOX, endpoint=False)
+        X, Y = np.meshgrid(x, y, indexing="ij")
+        positions = torch.tensor(np.stack([X, Y], axis=-1).reshape(-1, 2), dtype=torch.float32)
+        with torch.no_grad():
+            p = model(positions, p0, context=s).numpy()
+        return p.T.reshape(N, self.BOX, self.BOX)
+
+    def _change(self, context_eigenvalues):
+        before = periodic_cross_correlograms(self._maps(context_eigenvalues, 0.0))
+        after = periodic_cross_correlograms(self._maps(context_eigenvalues, 5.0))
+        return np.abs(before - after).max()
+
+    def test_shared_eigenvalue_per_wavevector_is_rigid(self):
+        per_copy = gaussian_eigenvalues(2 * self.M * self.COPIES, seed=0)
+        per_wavevector = np.tile(per_copy[: self.M], self.COPIES)
+        assert self._change(per_wavevector) < 1e-5
+
+    def test_eigenvalue_per_copy_is_not(self):
+        per_copy = gaussian_eigenvalues(2 * self.M * self.COPIES, seed=0)
+        assert self._change(per_copy) > 0.1
