@@ -12,6 +12,7 @@ repos:
       - id: check-merge-conflict
       - id: check-added-large-files
         args: ['--maxkb=5000'] # Bump from 500kB to 5MB; the tracked fits are 1-2 MB
+        exclude: ^data/ca1_events\.npz$ # 55 MB, the one deliberate exception
 
   - repo: https://github.com/astral-sh/uv-pre-commit
     # Ensure uv.lock file is up to date
