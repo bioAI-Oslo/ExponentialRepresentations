@@ -6,10 +6,10 @@ Everything else in this directory is generated locally and is not tracked.
 | File | Contents | Written by |
 | --- | --- | --- |
 | `gc_ratmaps.npy` | Rate maps of 102 grid cells, one module of one rat, shape `(102, 32, 32)`, one 32 × 32 map per unit over a square arena. Rate units are arbitrary. | — |
-| `gc_fit_commuting.npz` | The generators fitted to the grid-cell maps (`Gx`, `Gy`, `R`, `wavevectors`), the maps themselves (`experimental`), the regenerated maps and the extrapolation from the central three quarters of the arena. | `notebooks/12_grid_fitting_commuting.ipynb` |
-| `ca1_fit_one_animal_si0.50.npz` | The same for 103 CA1 units of one rat. The rate maps the fit was made on are stored under `experimental`, shape `(103, 32, 32)`, with the recording date, tetrode and cluster of every unit. | `notebooks/15_ca1_one_animal_fitting.ipynb` |
+| `gc_fit_commuting.npz` | The generators fitted to the grid-cell maps (`Gx`, `Gy`, `R`, `wavevectors`), the maps themselves (`experimental`), the regenerated maps and the extrapolation from the central three quarters of the arena. | `notebooks/fit_grid_cells.ipynb` |
+| `ca1_fit_one_animal_si0.50.npz` | The same for 103 CA1 units of one rat. The rate maps the fit was made on are stored under `experimental`, shape `(103, 32, 32)`, with the recording date, tetrode and cluster of every unit. | `notebooks/fit_place_cells.ipynb` |
 
-`notebooks/14_paper_figures.ipynb` and `notebooks/16_similarity_structure.ipynb` read the two
+`notebooks/fitting_figures.ipynb` and `notebooks/fitted_similarity_structure.ipynb` read the two
 fit files and run from a clone as is.
 
 ## Sources and licences
@@ -33,8 +33,8 @@ them.
 
 ## Regenerating the CA1 fit
 
-`notebooks/15_ca1_one_animal_fitting.ipynb` reads `data/ca1_events.npz`, the spike times and
-positions extracted from the raw release, and so do the earlier CA1 notebooks 10, 11 and 13.
+`notebooks/fit_place_cells.ipynb` reads `data/ca1_events.npz`, the spike times and
+positions extracted from the raw release, and so does `notebooks/ca1_population.ipynb`.
 That file is 55 MB and is not tracked. To rebuild it, download the dataset from EBRAINS into
 `ca1_data/` and run
 
