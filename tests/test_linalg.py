@@ -60,7 +60,7 @@ class TestBlockDiagonalOrthogonal:
         torch.testing.assert_close(R @ R.T, torch.eye(24), atol=1e-5, rtol=0)
 
     def test_is_block_diagonal(self):
-        """Off-block entries must be exactly zero — that is what makes cells module-pure."""
+        """Off-block entries must be exactly zero, which is what keeps each cell on one module."""
         n_blocks, block_size = 4, 6
         R = block_diagonal_orthogonal(n_blocks, block_size, seed=42)
 
@@ -88,28 +88,26 @@ class TestBlockDiagonalOrthogonal:
 
 
 class TestOrthogonalBasis:
-    def test_full_rank(self):
-        q0 = np.array([1.0, 0.0, 0.0, 0.0])
-        basis = orthogonal_basis(q0)
-        assert np.linalg.matrix_rank(basis) == 4
-
     def test_orthonormality(self):
-        q0 = np.array([1.0, 2.0, 3.0])
-        q0 = q0 / np.linalg.norm(q0)
-        basis = orthogonal_basis(q0)
-        identity = basis @ basis.T
-        np.testing.assert_allclose(identity, np.eye(3), atol=1e-10)
+        R = orthogonal_basis(np.array([1.0, 2.0, 3.0]), seed=0)
+        torch.testing.assert_close(R @ R.T, torch.eye(3), atol=1e-6, rtol=0)
 
-    def test_first_vector_preserved(self):
+    def test_first_row_is_q0_normalized(self):
+        """The sign must follow q0; QR alone fixes the first column only up to sign."""
+        q0 = np.array([-1.0, 2.0, -3.0, 0.5])
+        R = orthogonal_basis(q0, seed=0)
+        np.testing.assert_allclose(R[0].numpy(), q0 / np.linalg.norm(q0), atol=1e-6)
+
+    def test_maps_q0_to_the_first_canonical_direction(self):
         q0 = np.array([1.0, 2.0, 3.0])
-        q0_normed = q0 / np.linalg.norm(q0)
-        basis = orthogonal_basis(q0)
-        np.testing.assert_allclose(basis[0], q0_normed, atol=1e-10)
+        R = orthogonal_basis(q0, seed=0)
+        alpha = R @ torch.tensor(q0 / np.linalg.norm(q0), dtype=torch.float32)
+        torch.testing.assert_close(alpha, torch.tensor([1.0, 0.0, 0.0]), atol=1e-6, rtol=0)
 
     def test_seed_is_reproducible(self):
         q0 = np.array([1.0, 0.0, 0.0, 0.0])
-        np.testing.assert_array_equal(orthogonal_basis(q0, seed=7), orthogonal_basis(q0, seed=7))
-        assert not np.allclose(orthogonal_basis(q0, seed=7), orthogonal_basis(q0, seed=8))
+        torch.testing.assert_close(orthogonal_basis(q0, seed=7), orthogonal_basis(q0, seed=7), atol=0, rtol=0)
+        assert not torch.allclose(orthogonal_basis(q0, seed=7), orthogonal_basis(q0, seed=8))
 
 
 class TestBlockRotation:

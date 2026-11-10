@@ -45,6 +45,12 @@ class TestQuery:
         score = query(state, memory)
         assert score.dim() == 0  # scalar
 
+    def test_accepts_numpy_memory(self):
+        """The memory bundled from batch_inference output is numpy."""
+        state = torch.randn(60)
+        memory = torch.randn(60)
+        torch.testing.assert_close(query(state, memory.numpy()), query(state, memory))
+
 
 class TestBind:
     def test_shape(self):

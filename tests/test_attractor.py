@@ -4,6 +4,8 @@ The claim these check is that the exponential map is not merely analogous to
 attractor dynamics but is exactly its on-manifold solution.
 """
 
+from itertools import pairwise
+
 import numpy as np
 import scipy
 
@@ -46,7 +48,7 @@ class TestLyapunovEnergy:
         np.testing.assert_allclose(lyapunov_energy(z), 0.0, atol=1e-12)
 
     def test_matches_equation_8(self):
-        """E = (||z||^2 - 1)^2 / 2 — the factor of 1/2 is Eq. 8."""
+        """E = (||z||^2 - 1)^2 / 2, with the factor of 1/2 of Eq. 8."""
         z = np.array([1.0, 1.0])  # ||z||^2 = 2
         np.testing.assert_allclose(lyapunov_energy(z), 0.5)
 
@@ -110,7 +112,7 @@ class TestDynamics:
         offsets = [np.linalg.norm(simulate(z0, U, M, dt, T=0.06)[-1]) - 1 for dt in (1e-4, 5e-5, 2.5e-5)]
 
         assert all(offset > 0 for offset in offsets), "Euler should overshoot outward"
-        for coarse, fine in zip(offsets, offsets[1:]):
+        for coarse, fine in pairwise(offsets):
             assert 1.8 < coarse / fine < 2.2, f"expected ~2x per halving of dt, got {coarse / fine:.2f}"
 
     def test_on_manifold_step_is_pure_transport(self):
@@ -154,7 +156,7 @@ class TestExponentialMapTrajectory:
         np.testing.assert_allclose(predicted[star], z_star, atol=1e-12)
 
     def test_tau_rescales_time(self):
-        """expm(t U / tau) — doubling tau halves the effective transport."""
+        """expm(t U / tau): doubling tau halves the effective transport."""
         n, steps, dt, star = 16, 40, 1e-3, 0
         U = skew_symmetric_matrix(n, seed=0)
         z_star = np.random.default_rng(1).standard_normal(n)

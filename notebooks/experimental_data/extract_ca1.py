@@ -17,7 +17,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent))
-from ca1 import Session, Unit, save_events  # noqa: E402
+from ca1 import Session, Unit, save_events
 
 AXONA_PX_PER_M = 300  # recorded in every .pos header
 AXONA_COVERAGE_CM = 137.0  # median occupied extent of the Axona animals at that scale
@@ -55,9 +55,9 @@ def axona_session(folder: Path, axona) -> Session:
     return Session(folder.parent.name, folder.name, "axona", float(settings["duration"]), cm_per_px, t, xy * cm_per_px)
 
 
-def neuralynx_session(folder: Path) -> Session:
+def neuralynx_session(folder: Path) -> tuple[Session, float]:
     (nvt,) = folder.glob("*.nvt")
-    with open(nvt, "rb") as f:
+    with nvt.open("rb") as f:
         f.seek(NVT_HEADER_BYTES)
         records = np.fromfile(f, dtype=NVT_RECORD)
     t_us = records["qwTimeStamp"].astype(np.float64)
@@ -71,7 +71,10 @@ def neuralynx_session(folder: Path) -> Session:
 def cluster_units(folder: Path, session_index: int, duration: float, mclust, clock_offset_s: float = 0.0) -> list[Unit]:
     units = []
     for f in sorted(folder.glob("*.t64")):
-        tetrode, cluster = (int(g) for g in CLUSTER_FILE.search(f.name).groups())
+        match = CLUSTER_FILE.search(f.name)
+        if match is None:
+            raise ValueError(f"unexpected cluster file name {f.name}")
+        tetrode, cluster = (int(g) for g in match.groups())
         _, spike_t = mclust.load_tfile(str(f))  # seconds; Neuralynx on the Cheetah clock
         spike_t = spike_t - clock_offset_s
         units.append(Unit(session_index, tetrode, cluster, spike_t, len(spike_t) / duration, -1))
@@ -91,8 +94,9 @@ def mark_nested_duplicates(units: list[Unit], threshold: float = 0.5) -> None:
 
 def main(raw: Path, out: Path) -> None:
     sys.path.insert(0, str(raw))
-    np.string_ = np.bytes_  # the shipped loaders predate NumPy 2
-    from scripts import axona, mclust
+    # The shipped loaders predate NumPy 2 and still use the removed alias.
+    np.string_ = np.bytes_  # noqa: NPY201  # pyright: ignore[reportAttributeAccessIssue]
+    from scripts import axona, mclust  # pyright: ignore[reportMissingImports]  # loaders live in the raw release
 
     sessions, units = [], []
     for animal in sorted((raw / "data").iterdir()):

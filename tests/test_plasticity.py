@@ -1,9 +1,9 @@
 """Tests for the local learning rule (Appendix J.4).
 
-The decay of the symmetric part is algebra, not evidence — it follows from the
-Hebbian term being antisymmetric, whatever the input — so it is checked against
-its closed form rather than merely observed to shrink. The claim with content is
-the steady state, which is checked against structured input.
+The decay of the symmetric part is algebra, not evidence: it follows from the
+Hebbian term being antisymmetric, whatever the input. It is therefore checked
+against its closed form rather than observed to shrink. The informative result
+is the steady state, which is checked against structured input.
 """
 
 import numpy as np
@@ -58,7 +58,7 @@ class TestSymmetricDecay:
         """dS = -alpha S, so S(t) = (1 - alpha)^t S(0) whatever the input.
 
         The Hebbian term is antisymmetric by construction and contributes nothing
-        to S, so this is an identity — it should hold to machine precision, not
+        to S, so this is an identity. It should hold to machine precision, not
         approximately.
         """
         rng = np.random.default_rng(0)
@@ -66,7 +66,7 @@ class TestSymmetricDecay:
         W0 = rng.standard_normal((10, 10)) * 0.1
         rates = rng.standard_normal((n_steps + 1, 10))
 
-        _, history = learn_connectivity(rates, eta=0.01, alpha=alpha, W0=W0, record=True)
+        _, history = learn_connectivity(rates, eta=0.01, alpha=alpha, W0=W0)
 
         expected = np.array([(1 - alpha) ** t * rms(W0 + W0.T) for t in range(n_steps)])
         np.testing.assert_allclose(history["symmetric_rms"], expected, rtol=1e-10)
@@ -76,7 +76,7 @@ class TestSymmetricDecay:
         W0 = np.random.default_rng(1).standard_normal((8, 8)) * 0.1
         rates = transported_activity(skew(8), n_steps=n_steps + 1, seed=0)
 
-        _, history = learn_connectivity(rates, alpha=alpha, W0=W0, record=True)
+        _, history = learn_connectivity(rates, alpha=alpha, W0=W0)
 
         expected = np.array([(1 - alpha) ** t * rms(W0 + W0.T) for t in range(n_steps)])
         np.testing.assert_allclose(history["symmetric_rms"], expected, rtol=1e-10)
@@ -118,8 +118,7 @@ class TestSteadyState:
 
         `A*` shrinks as 1/sqrt(T) because `<H>` does, while the learned `A` keeps
         a magnitude set by the noise. The gap between them therefore widens with
-        T — which is why the original demonstration was weaker than it looked:
-        the symmetric part decaying proves nothing about the input.
+        T. The symmetric part decaying proves nothing about the input.
         """
         rng = np.random.default_rng(0)
         eta, alpha = 0.01, 0.001

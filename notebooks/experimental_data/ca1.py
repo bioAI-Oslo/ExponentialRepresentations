@@ -33,13 +33,13 @@ reports 1002 units, so some clusters are unfinished cuts; `unit_duplicate_of`
 removes the nested ones and the rate criterion most of the rest. The scale of the
 Neuralynx camera is not in its headers; `extract_ca1.py` sets it so that the
 occupied extent matches the Axona animals (where 300 px/m is recorded), which only
-affects the speed filter since ratemaps are binned on the occupied extent.
+affects the speed filter since rate maps are binned on the occupied extent.
 """
 
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.ndimage import gaussian_filter, gaussian_filter1d
+from scipy.ndimage import gaussian_filter, gaussian_filter1d, label
 
 
 @dataclass
@@ -156,7 +156,7 @@ def arena_box(xy: np.ndarray, valid: np.ndarray, quantile: float = 0.005) -> tup
     """Square box covering the occupied extent: (centre, side), cm.
 
     The quantile trims tracking outliers; the side is the larger of the two
-    axes' extents so the box stays square for a square ratemap grid.
+    axes' extents so the box stays square for a square rate map grid.
     """
     lo = np.quantile(xy[valid], quantile, axis=0)
     hi = np.quantile(xy[valid], 1 - quantile, axis=0)
@@ -172,10 +172,10 @@ def ratemap(
     n_bins: int = 32,
     sigma: float = 1.0,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Occupancy-normalised ratemap on the box, indexed (bins_x, bins_y).
+    """Occupancy-normalized rate map on the box, indexed (bins_x, bins_y).
 
     Spike counts and occupancy are smoothed separately before dividing, so
-    sparsely visited bins borrow from their neighbours rather than exploding.
+    sparsely visited bins borrow from their neighbors rather than exploding.
 
     Returns
     -------
@@ -221,7 +221,7 @@ def population_ratemaps(
     position_sigma: float = 3.0,
     speed_range: tuple[float, float] = (6.0, 60.0),
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Ratemaps for a set of units, each on its own session's occupied box.
+    """Rate maps for a set of units, each on its own session's occupied box.
 
     Returns
     -------
@@ -254,10 +254,10 @@ def place_fields(rate: np.ndarray, threshold: float = 0.2, min_bins: int = 9) ->
     Returns an integer map, 0 outside fields and 1..n_fields inside, in
     descending order of peak rate.
     """
-    from scipy.ndimage import label
-
     filled = np.nan_to_num(rate)
-    labels, n = label(filled >= threshold * filled.max())
+    labels = np.zeros(rate.shape, dtype=np.int32)
+    # scipy's stub types the return as a union of the two call forms; with `output` it is the count.
+    n: int = label(filled >= threshold * filled.max(), output=labels)  # pyright: ignore[reportAssignmentType]
     peaks = [(filled[labels == k].max(), k) for k in range(1, n + 1) if (labels == k).sum() >= min_bins]
     fields = np.zeros_like(labels)
     for new, (_, k) in enumerate(sorted(peaks, reverse=True), start=1):
@@ -278,8 +278,8 @@ def border_score(rate: np.ndarray, fields: np.ndarray) -> float:
     n = rate.shape[0]
     inside = fields > 0
     coverage = max(inside[0].mean(), inside[-1].mean(), inside[:, 0].mean(), inside[:, -1].mean())
-    ix, iy = np.indices(rate.shape)
-    distance = np.minimum.reduce([ix, n - 1 - ix, iy, n - 1 - iy]) / (n / 2)
+    index = np.indices(rate.shape)
+    distance = np.minimum.reduce([index[0], n - 1 - index[0], index[1], n - 1 - index[1]]) / (n / 2)
     weights = np.nan_to_num(rate)[inside]
     mean_distance = (distance[inside] * weights).sum() / weights.sum()
     return float((coverage - mean_distance) / (coverage + mean_distance))
@@ -294,7 +294,7 @@ def split_half_correlation(
     position_sigma: float = 3.0,
     speed_range: tuple[float, float] = (6.0, 60.0),
 ) -> np.ndarray:
-    """Pearson correlation between ratemaps from the two halves of the session.
+    """Pearson correlation between rate maps from the two halves of the session.
 
     A stability measure: a unit whose field moves or is only present in one
     half correlates poorly. Computed over bins visited in both halves.

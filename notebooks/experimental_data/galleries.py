@@ -1,7 +1,8 @@
-"""Data-versus-model ratemap galleries shared by the fitting notebooks (12, 13, 15)."""
+"""Data-versus-model rate map galleries shared by the fitting notebooks (12, 13, 15)."""
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.patches import Rectangle
 
 
 def gallery(data, model, scores, mask=None, box=None, n_show=32, n_cols=8, label="r"):
@@ -10,7 +11,7 @@ def gallery(data, model, scores, mask=None, box=None, n_show=32, n_cols=8, label
     Parameters
     ----------
     data, model : numpy.ndarray
-        Ratemaps indexed (unit, bins_x, bins_y).
+        Rate maps indexed (unit, bins_x, bins_y).
     scores : numpy.ndarray
         One number per unit, shown in the title and used to order the units; the shown
         units are sampled evenly from best to worst.
@@ -45,7 +46,7 @@ def gallery(data, model, scores, mask=None, box=None, n_show=32, n_cols=8, label
             lo, hi = box
             for ax in (axs[row, col], axs[row + 1, col]):
                 ax.add_patch(
-                    plt.Rectangle((lo - 0.5, lo - 0.5), hi - lo, hi - lo, fill=False, edgecolor="w", linewidth=0.8)
+                    Rectangle((lo - 0.5, lo - 0.5), hi - lo, hi - lo, fill=False, edgecolor="w", linewidth=0.8)
                 )
     for row in range(0, n_rows, 2):
         axs[row, 0].text(-4, n_bins / 2, "data", rotation=90, va="center", ha="right", fontsize=8)

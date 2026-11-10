@@ -1,18 +1,28 @@
-"""Hyperdimensional computing operations for exponential map representations.
+r"""Hyperdimensional computing operations for exponential map representations.
 
-Implements bundling, binding, querying, and gradient-based navigation using
-the algebraic properties of the exponential map framework (Sec. 3.3,
-Appendix L). The high-dimensional structure of the population vectors
-ensures that randomly sampled representations are nearly orthogonal,
-enabling robust superposition (bundling) and context-dependent filtering
-(binding) within a single neural population.
+Bundling, binding, querying and gradient-based navigation with the algebra of
+the exponential map (Sec. 3.3, Appendix L). Bundling superposes the population
+vectors of target locations :math:`\mathbf{r}_i` into one memory,
+
+.. math::
+
+    \mathbf{p}_R(s) = \frac{1}{N_R} \sum_{i=1}^{N_R} \mathbf{p}(\mathbf{r}_i, s),
+
+and a query at :math:`\mathbf{r}` is the inner product
+:math:`C_R(\mathbf{r}, s) = \mathbf{p}(\mathbf{r}, s)^\mathsf{T} \mathbf{p}_R(s)`,
+a sum of similarity bumps centered on the targets. Binding is the operation that
+makes vectors nearly orthogonal to their constituents, and here it is remapping:
+the context shift :math:`e^{\Delta s\, G_s}` makes the maps of dissimilar
+contexts nearly orthogonal, so the memories of several contexts can be bundled
+into one composite and a query in one context retrieves its own targets while
+the others cancel.
 """
 
 import numpy as np
 import torch
 
 
-def bundle(representations):
+def bundle(representations: torch.Tensor) -> torch.Tensor:
     """Aggregate population vectors into a composite memory via superposition.
 
     Bundling computes the element-wise mean of a set of population vectors,
@@ -23,23 +33,23 @@ def bundle(representations):
 
     Parameters
     ----------
-    representations : torch.Tensor or numpy.ndarray
+    representations : torch.Tensor
         Population vectors to bundle, shape (n_items, N).
 
     Returns
     -------
-    torch.Tensor or numpy.ndarray
-        Composite memory vector, shape (N,). Same type as input.
+    torch.Tensor
+        Composite memory vector, shape (N,).
     """
-    return representations.mean(axis=0)
+    return representations.mean(dim=0)
 
 
-def bind(memory_vectors):
+def bind(memory_vectors: list[torch.Tensor]) -> torch.Tensor:
     """Superpose per-context memories into one multi-context composite.
 
     Sums memory vectors that were each bundled within a different context.
     This is *not* the binding operation itself: in this framework binding is
-    remapping, the orthogonalizing transform exp(s * Gs) that `RemappingModel`
+    remapping, the orthogonalizing transform exp(s * Gs) that ``RemappingModel``
     applies when the representations are generated (Appendix L.2, Eq. 9).
     Because that transform has already decorrelated the contexts, the summed
     composite holds several reward maps at once and each is recovered by
@@ -47,23 +57,21 @@ def bind(memory_vectors):
 
     Parameters
     ----------
-    memory_vectors : list[torch.Tensor] or list[numpy.ndarray]
+    memory_vectors : list[torch.Tensor]
         List of bundled memory vectors, one per context. Each has shape (N,).
 
     Returns
     -------
-    torch.Tensor or numpy.ndarray
+    torch.Tensor
         Composite multi-context memory vector, shape (N,).
     """
-    if isinstance(memory_vectors[0], torch.Tensor):
-        return torch.stack(memory_vectors).sum(dim=0)
-    return np.stack(memory_vectors).sum(axis=0)
+    return torch.stack(memory_vectors).sum(dim=0)
 
 
-def query(current_state, memory):
-    """Compute similarity between a current state and a stored memory.
+def query(current_state: torch.Tensor, memory: torch.Tensor | np.ndarray) -> torch.Tensor:
+    r"""Compute similarity between a current state and a stored memory.
 
-    Returns the inner product p(r, s)^T @ pR(s), which measures how
+    Returns the inner product :math:`\mathbf{p}(\mathbf{r}, s)^\mathsf{T}\mathbf{p}_R(s)`, which measures how
     similar the current location's representation is to the composite
     memory. For similarity-preserving representations, this score
     approximates the sum of Gaussian bumps centered at stored locations
@@ -71,43 +79,51 @@ def query(current_state, memory):
 
     Parameters
     ----------
-    current_state : torch.Tensor or numpy.ndarray
+    current_state : torch.Tensor
         Population vector at the current location, shape (N,) or
         (batch, N) for multiple query locations.
     memory : torch.Tensor or numpy.ndarray
-        Composite memory vector, shape (N,).
+        Composite memory vector, shape (N,). A numpy memory, as bundled from
+        ``analysis.batch_inference`` output, is accepted like in
+        ``similarity_gradient``.
 
     Returns
     -------
-    torch.Tensor or numpy.ndarray
+    torch.Tensor
         Similarity score(s). Scalar if current_state is 1D, or
         shape (batch,) if current_state is 2D.
     """
-    if isinstance(current_state, torch.Tensor):
-        if current_state.dim() == 1:
-            return torch.dot(current_state, memory)
-        return current_state @ memory
-    if current_state.ndim == 1:
-        return np.dot(current_state, memory)
+    memory = torch.as_tensor(memory, dtype=current_state.dtype, device=current_state.device)
     return current_state @ memory
 
 
-def similarity_gradient(model, position, memory, p0, context=None):
-    """Compute the gradient of the similarity landscape in closed form.
+def similarity_gradient(
+    model: torch.nn.Module,
+    position: torch.Tensor,
+    memory: torch.Tensor | np.ndarray,
+    p0: torch.Tensor,
+    context: torch.Tensor | float | None = None,
+) -> torch.Tensor:
+    r"""Compute the gradient of the similarity landscape in closed form.
 
-    The similarity score is CR(r, s) = p(r, s) . pR(s), and differentiating
-    Eq. 1 under the integral gives the gradient exactly:
+    The similarity score is :math:`C_R(\mathbf{r}, s) = \mathbf{p}(\mathbf{r}, s)
+    \cdot \mathbf{p}_R(s)`, and differentiating Eq. 1 gives the gradient exactly,
 
-        dCR/dx = (Gx p(r, s)) . pR(s),    dCR/dy = (Gy p(r, s)) . pR(s)
+    .. math::
 
-    because d/dx exp(x Gx + y Gy) = Gx exp(x Gx + y Gy) for commuting
-    generators. This gradient supports gradient-ascent navigation toward
-    stored rewards: r_{t+1} = r_t + eta * grad (Appendix L.1).
+        \frac{\partial C_R}{\partial x} = (G_x\,\mathbf{p}(\mathbf{r}, s)) \cdot \mathbf{p}_R(s),
+        \qquad
+        \frac{\partial C_R}{\partial y} = (G_y\,\mathbf{p}(\mathbf{r}, s)) \cdot \mathbf{p}_R(s),
+
+    because :math:`\partial_x e^{x G_x + y G_y + s G_s} = G_x e^{x G_x + y G_y + s G_s}`
+    when all three generators commute, as they do by construction (shared
+    :math:`R`). This gradient supports gradient-ascent navigation
+    toward stored rewards, :math:`\mathbf{r}_{t+1} = \mathbf{r}_t + \eta\,\nabla C_R`
+    (Appendix L.1).
 
     Evaluating the closed form costs one matrix exponential rather than the
     four a central difference would need, is exact, and removes the step-size
-    parameter. `tests/test_navigation.py` checks it against a finite
-    difference.
+    parameter.
 
     Parameters
     ----------
@@ -125,16 +141,15 @@ def similarity_gradient(model, position, memory, p0, context=None):
     Returns
     -------
     torch.Tensor
-        Gradient vector (dCR/dx, dCR/dy), shape (2,).
+        Gradient vector (dCR/dx, dCR/dy), shape (2,), on the device of
+        ``position`` so that the next step ``position + eta * grad`` needs no
+        transfer.
     """
     positions = position.to(torch.float32).reshape(1, 2)
 
     with torch.no_grad():
-        if context is not None:
-            p = model(positions, p0, context=context)
-        else:
-            p = model(positions, p0)
+        p = model(positions, p0, context=context) if context is not None else model(positions, p0)
 
     p = p[0]
     memory = torch.as_tensor(memory, dtype=p.dtype, device=p.device)
-    return torch.stack([(model.Gx @ p) @ memory, (model.Gy @ p) @ memory]).cpu()
+    return torch.stack([(model.Gx @ p) @ memory, (model.Gy @ p) @ memory]).to(position.device)

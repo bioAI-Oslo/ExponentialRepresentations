@@ -87,9 +87,8 @@ class TestRemappingModel:
     def test_numpy_scalar_context(self):
         """numpy scalars must work too.
 
-        isinstance(context, float) caught np.float64 (a float subclass) but
-        not np.float32, which fell through to the tensor branch and raised
-        AttributeError.
+        np.float64 subclasses float and np.float32 does not, so both must be
+        accepted the same way.
         """
         model, p0 = expmap.remapping_model(M=3, n_copies=5, seed=42)
         positions = torch.rand(10, 2)
@@ -105,8 +104,7 @@ class TestDevicePlacement:
     def test_forward_follows_module_to(self):
         """forward must read the device off the buffers, not a cached attribute.
 
-        self.device could not be updated by nn.Module.to(), so moving the model
-        left forward coercing inputs to the original device. Exercised here via
+        A cached attribute would not follow nn.Module.to(). Exercised here via
         dtype, which .to() propagates the same way.
         """
         model, p0 = expmap.grid_cell_model(M=3, n_copies=5, seed=42)
@@ -116,3 +114,12 @@ class TestDevicePlacement:
         p = model(torch.rand(4, 2, dtype=torch.float64), p0.double())
         assert p.dtype == torch.float64
         assert not hasattr(model, "device"), "stale device attribute reintroduced"
+
+    def test_constructors_accept_torch_device(self):
+        """The constructors take a torch.device like the models do, and the
+        generators land on it while p0 stays on the CPU."""
+        device = torch.device("cpu")
+        for build in (expmap.grid_cell_model, expmap.place_cell_model, expmap.remapping_model):
+            model, p0 = build(seed=42, device=device)
+            assert model.Gx.device == device
+            assert p0.device.type == "cpu"

@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import torch
 
@@ -15,32 +17,34 @@ from expmap.model import RemappingModel
 
 class TestComputeRatemaps:
     def test_shape(self):
+        rng = np.random.default_rng(0)
         n_samples = 1000
         n_units = 10
-        x = np.random.uniform(-1, 1, n_samples)
-        y = np.random.uniform(-1, 1, n_samples)
-        p = np.random.randn(n_samples, n_units)
+        x = rng.uniform(-1, 1, n_samples)
+        y = rng.uniform(-1, 1, n_samples)
+        p = rng.standard_normal((n_samples, n_units))
         ratemaps = compute_ratemaps(x, y, p, bins=16)
         assert ratemaps.shape == (n_units, 16, 16)
 
     def test_different_bin_count(self):
+        rng = np.random.default_rng(0)
         n_samples = 500
         n_units = 5
-        x = np.random.uniform(-1, 1, n_samples)
-        y = np.random.uniform(-1, 1, n_samples)
-        p = np.random.randn(n_samples, n_units)
+        x = rng.uniform(-1, 1, n_samples)
+        y = rng.uniform(-1, 1, n_samples)
+        p = rng.standard_normal((n_samples, n_units))
         ratemaps = compute_ratemaps(x, y, p, bins=8)
         assert ratemaps.shape == (n_units, 8, 8)
 
 
 class TestComputeSimilarity:
     def test_shape(self):
-        ratemaps = np.random.randn(10, 16, 16)
+        ratemaps = np.random.default_rng(0).standard_normal((10, 16, 16))
         sim = compute_similarity(ratemaps, ref_bin=(8, 8))
         assert sim.shape == (16, 16)
 
     def test_self_similarity_equals_squared_norm(self):
-        ratemaps = np.random.randn(10, 16, 16)
+        ratemaps = np.random.default_rng(0).standard_normal((10, 16, 16))
         ref = (8, 8)
         sim = compute_similarity(ratemaps, ref_bin=ref)
         expected = np.sum(ratemaps[:, ref[0], ref[1]] ** 2)
@@ -52,10 +56,18 @@ class TestComputeSimilarity:
         nansum would treat the reference NaNs as zeros and return an
         identically-zero map, which is a plausible-looking wrong answer.
         """
-        ratemaps = np.random.randn(10, 16, 16)
+        ratemaps = np.random.default_rng(0).standard_normal((10, 16, 16))
         ratemaps[:, 4, 4] = np.nan
         sim = compute_similarity(ratemaps, ref_bin=(4, 4))
         assert np.isnan(sim).all()
+
+    def test_unvisited_target_bin_is_nan(self):
+        """An unvisited bin is missing data, not a similarity of zero."""
+        ratemaps = np.random.default_rng(0).random((5, 8, 8))
+        ratemaps[:, 2, 6] = np.nan
+        sim = compute_similarity(ratemaps, ref_bin=(4, 4))
+        assert np.isnan(sim[2, 6])
+        assert np.isnan(sim).sum() == 1
 
 
 class TestSimilarityAgainstClosedForm:
@@ -67,8 +79,8 @@ class TestSimilarityAgainstClosedForm:
 
         C(dx, dy) = sum_i (2/N) cos(lambda_ix dx + lambda_iy dy)
 
-    summed over the N/2 rotational subspaces. This exercises the whole chain —
-    generator construction, matrix_exp, binning and the dot product — against a
+    summed over the N/2 rotational subspaces. This exercises the whole chain,
+    generator construction, matrix_exp, binning and the dot product, against a
     number that is derivable rather than merely reproducible.
     """
 
@@ -185,8 +197,19 @@ class TestPeriodicCrossCorrelograms:
         np.testing.assert_allclose(cc[1, 1, 6, 8], 1.0, atol=1e-12)
 
 
+class TestPeriodicCrossCorrelogramsDegenerate:
+    def test_silent_unit_is_nan_without_a_warning(self):
+        ratemaps = np.random.default_rng(0).random((3, 6, 6))
+        ratemaps[1] = 0.0  # a silent unit
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            cc = periodic_cross_correlograms(ratemaps)
+        assert np.isnan(cc[1]).all() and np.isnan(cc[:, 1]).all()
+        assert not np.isnan(cc[0, 2]).any()
+
+
 class TestPhaseRigidity:
-    """Pairwise phase relations under a context shift (App. I.1).
+    """Pairwise phase relations under a context shift (App. M).
 
     A context shift adds the phase lambda_{i,s} s to the plane wave of the i-th
     subspace, the same for every unit. The cross-correlogram of two units is

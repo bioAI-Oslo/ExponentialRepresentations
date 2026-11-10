@@ -1,39 +1,41 @@
-"""Fitting generators to measured spatial representations (Appendix K).
+r"""Fitting generators to recorded spatial representations (Sec. 3.2, Appendix K).
 
 This is the one place in the framework where anything is learned by gradient
 descent. Everywhere else the generators are built algebraically from an
-eigenvalue specification; here they are recovered from data, to ask whether real
-grid cell ratemaps are consistent with an exponential map at all — and, if so,
-whether the fitted generators extrapolate beyond the arena they were fitted in.
+eigenvalue specification. Here they are recovered from recorded rate maps, to
+test whether grid and place cell populations are consistent with an exponential
+map, and whether the fitted generators extrapolate beyond the fitted region.
 
-Given ratemaps sampled on a pixel grid, the fit minimises the one-step
-prediction error of Eq. 1 over random displacements,
+Given rate maps sampled on a pixel grid, both fits minimize the one-step
+prediction error of Eq. 1 over a batch of :math:`K` random displacements of up
+to a few pixels,
 
-    L = mean || p(r + dr) - exp(dx Gx + dy Gy) p(r) ||^2 + w || [Gx, Gy] ||^2
+.. math::
 
-The commutator penalty is what makes the result a *path-integrating* solution
-rather than merely a good interpolator: without it nothing forces the two
-generators to be simultaneously diagonalisable, and displacements would not
-compose. `GeneratorFit` is that penalised fit. `CommutingGeneratorFit` removes
-the penalty by parameterising the generators as the framework builds them,
-`G = R^T Sigma R` with a shared orthogonal `R`, so they commute exactly and the
-weight `w` disappears; it is the procedure of the camera-ready version, the
-penalised fit that of the submitted one.
+    \mathcal{L} = \frac{1}{K} \sum_{k=1}^{K}
+    \left\lVert \mathbf{p}(\mathbf{r}_k + \delta\mathbf{r}_k)
+    - e^{\delta x_k G_x + \delta y_k G_y}\,\mathbf{p}(\mathbf{r}_k) \right\rVert^2.
 
-Skew-symmetry is imposed structurally rather than penalised, by learning a free
-matrix A and taking `G = A - A^T`. Appendix K enforces it "to guarantee
-orthogonal transport during spatial extrapolation": the point of the experiment
-is to generate an arena twice the size of the one fitted, and only an orthogonal
-`exp(dr . G)` keeps `||p||` from drifting once the displacements leave the
-range the fit ever saw. Pass `enforce_skew=False` to optimise the generators
-freely and watch that fail — `generator_diagnostics` measures it.
+``CommutingGeneratorFit`` is the procedure of the paper (App. K). It parameterizes
+the generators as the framework builds them, :math:`G = R^\mathsf{T} \Sigma R`, with one
+orthogonal :math:`R` and block-diagonal :math:`\Sigma` holding the wavevectors. The
+generators are then skew-symmetric and commute for every parameter value.
+``GeneratorFit`` is the procedure of the first submitted version, kept as the record.
+It learns free skew-symmetric generators :math:`G = A - A^\mathsf{T}` with a penalty
+:math:`w \lVert [G_x, G_y] \rVert^2` on the commutator. Without the penalty the fitted
+generators need not commute, so displacements need not compose.
 
-This module is torch, like `model` and `generators`.
+Skew-symmetry matters for extrapolation. Only an orthogonal :math:`e^{\delta\mathbf{r} \cdot \mathbf{G}}`
+keeps :math:`\lVert\mathbf{p}\rVert` constant once the displacements leave the range the fit saw. Pass
+``enforce_skew=False`` to see the norm drift, which ``generator_diagnostics``
+measures.
 """
 
 import numpy as np
 import torch
 from tqdm import tqdm
+
+from expmap.generators import block_diag_skew
 
 
 def sample_displacements(
@@ -46,17 +48,17 @@ def sample_displacements(
 
     Steps that would leave the arena are reflected rather than clipped, so the
     displacement keeps its magnitude and the sampled distribution stays
-    symmetric — clipping would bias short steps toward the walls.
+    symmetric. Clipping would bias short steps toward the walls.
 
     Parameters
     ----------
     n_bins : int
-        Side length of the square ratemap grid.
+        Side length of the square rate map grid.
     batch_size : int
         Number of displacement pairs.
     max_step : int, optional
         Largest step in pixels along each axis; steps are drawn uniformly from
-        `-max_step ... +max_step`.
+        ``-max_step ... +max_step``.
     generator : torch.Generator, optional
         Seed the sampling. Leave None to use the global RNG.
 
@@ -76,52 +78,55 @@ def sample_displacements(
 def pixels_to_arena(steps: torch.Tensor, n_bins: int, arena_size: float = 1.0) -> torch.Tensor:
     """Convert a pixel displacement to arena units.
 
-    The experimental maps span `[-arena_size, +arena_size]` across `n_bins`
-    pixels, so one pixel is `2 * arena_size / n_bins`.
+    The experimental maps span ``[-arena_size, +arena_size]`` across ``n_bins``
+    pixels, so one pixel is ``2 * arena_size / n_bins``.
 
     Parameters
     ----------
     steps : torch.Tensor
         Pixel displacements, shape (..., 2).
     n_bins : int
-        Side length of the ratemap grid.
+        Side length of the rate map grid.
     arena_size : float, optional
         Half-width of the arena in the units the generators are expressed in.
 
     Returns
     -------
     torch.Tensor
-        Displacements in arena units, same shape as `steps`.
+        Displacements in arena units, same shape as ``steps``.
     """
     return (2 * arena_size / n_bins) * steps.float()
 
 
 class GeneratorFit:
-    """Recover Gx and Gy from measured ratemaps by gradient descent (App. K).
+    r"""Recover :math:`G_x` and :math:`G_y` from measured rate maps with a commutator penalty.
+
+    The procedure of the submitted version. The paper's fit is
+    ``CommutingGeneratorFit``, which shares this interface.
 
     Parameters
     ----------
     n_units : int
-        Number of recorded units, i.e. the dimension of the population vector.
+        Number of recorded units, which is the dimension of the population vector.
     commutator_weight : float, optional
-        Weight on the `|| [Gx, Gy] ||^2` penalty, `gamma` in Appendix K.
+        Weight on the :math:`\lVert [G_x, G_y] \rVert^2` penalty.
     lr : float, optional
         Adam learning rate.
     enforce_skew : bool, optional
-        Parameterise `G = A - A^T` so the generators are exactly skew-symmetric
-        and transport is exactly orthogonal, as Appendix K does. Set False to
-        optimise the generators directly, which fits the training domain about
-        as well but does not preserve `||p||` when extrapolating.
+        Parameterize :math:`G = A - A^\mathsf{T}` so the generators are exactly
+        skew-symmetric and transport is exactly orthogonal. Set False to optimize
+        the generators directly. That fits the training domain about as well,
+        but the norm of :math:`\mathbf{p}` drifts when extrapolating.
     seed : int, optional
-        Seeds both the initialisation and the displacement sampling.
+        Seeds both the initialization and the displacement sampling.
 
     Attributes
     ----------
     Gx, Gy : torch.Tensor
-        The generators, shape (n_units, n_units). Derived from the underlying
-        parameters when `enforce_skew`, so read them rather than assigning.
+        The generators, shape (n_units, n_units). Derived from the learned
+        parameters, so read them rather than assign to them.
     loss_history : list[float]
-        Total loss per step, populated by `fit`.
+        Total loss per step, populated by ``fit``.
     """
 
     def __init__(
@@ -158,7 +163,7 @@ class GeneratorFit:
         return self._Ay - self._Ay.T if self.enforce_skew else self._Ay
 
     def transport(self, p0: torch.Tensor, dr: torch.Tensor) -> torch.Tensor:
-        """Apply exp(dx Gx + dy Gy) to a batch of population vectors (Eq. 1).
+        r"""Apply :math:`e^{\delta x G_x + \delta y G_y}` to a batch of population vectors (Eq. 1).
 
         Parameters
         ----------
@@ -173,7 +178,7 @@ class GeneratorFit:
             Transported population vectors, shape (batch, n_units).
         """
         Q = torch.matrix_exp(dr[..., 0, None, None] * self.Gx[None] + dr[..., 1, None, None] * self.Gy[None])
-        return torch.bmm(Q, p0[..., None]).squeeze(-1)
+        return (Q @ p0[..., None]).squeeze(-1)
 
     def loss(self, p0: torch.Tensor, pt: torch.Tensor, dr: torch.Tensor) -> torch.Tensor:
         """Prediction error plus the commutator penalty."""
@@ -190,12 +195,12 @@ class GeneratorFit:
         arena_size: float = 1.0,
         progress: bool = True,
     ) -> list[float]:
-        """Fit the generators to ratemaps.
+        """Fit the generators to rate maps.
 
         Parameters
         ----------
         ratemaps : torch.Tensor
-            Ratemaps indexed **(bins_x, bins_y, n_units)** — position first, so
+            Rate maps indexed **(bins_x, bins_y, n_units)**, position first, so
             a pixel index returns a population vector directly.
         n_steps : int
             Number of Adam steps.
@@ -229,11 +234,11 @@ class GeneratorFit:
         return self.loss_history
 
     def generate(self, p0: torch.Tensor, n_bins: int, extent: float = 1.0, arena_size: float = 1.0) -> torch.Tensor:
-        """Generate ratemaps by transporting p0 across a grid of displacements.
+        """Generate rate maps by transporting p0 across a grid of displacements.
 
-        With `extent=1` this reconstructs the training domain; with `extent=2`
-        it extrapolates to an arena twice the size, which is the Appendix K
-        result — nothing in the fit saw those displacements.
+        With ``extent=1`` this reconstructs the training domain; with ``extent=2``
+        it generates an arena of twice the side length, as in Appendix K,
+        where nothing in the fit saw those displacements.
 
         Parameters
         ----------
@@ -249,8 +254,8 @@ class GeneratorFit:
         Returns
         -------
         torch.Tensor
-            Ratemaps of shape (n_units, n_bins, n_bins), indexed
-            (unit, bins_x, bins_y) to match `analysis.compute_ratemaps`.
+            Rate maps of shape (n_units, n_bins, n_bins), indexed
+            (unit, bins_x, bins_y) to match ``analysis.compute_ratemaps``.
         """
         axis = torch.arange(n_bins) - n_bins // 2
         gx, gy = torch.meshgrid(axis, axis, indexing="ij")
@@ -263,28 +268,34 @@ class GeneratorFit:
 
 
 class CommutingGeneratorFit(GeneratorFit):
-    """Fit generators that commute by construction (App. K, place-cell variant).
+    r"""Fit generators that commute by construction (Sec. 3.2, App. K).
 
-    The generators are parameterised the way the framework builds them,
+    The generators are parameterized the way the framework builds them,
 
-        Gx = R^T Sigma_x R,   Gy = R^T Sigma_y R,
+    .. math::
 
-    with one orthogonal matrix `R = exp(B - B^T)` and block-diagonal skew
-    matrices `Sigma_x`, `Sigma_y` holding the wavevector pairs
-    `(lambda_ix, lambda_iy)` (Sec. 2.2, App. C). They share an eigenbasis, so
-    `[Gx, Gy] = 0` exactly and path integration is path independent without a
-    penalty. The loss is the one-step prediction error alone, and the fitted
-    parameters are interpretable: the wavevectors are the population's spatial
-    spectrum and `R` its mixing.
+        G_x = R^\mathsf{T} \Sigma_x R, \qquad G_y = R^\mathsf{T} \Sigma_y R,
+
+    with one orthogonal matrix :math:`R = e^{B - B^\mathsf{T}}` and block-diagonal
+    skew matrices :math:`\Sigma_x`, :math:`\Sigma_y` holding the wavevector pairs
+    :math:`(\lambda_{i,x}, \lambda_{i,y})` (Sec. 2.2, App. C). The generators
+    share an eigenbasis, so :math:`[G_x, G_y] = 0` exactly and path integration
+    is path independent without a penalty. The loss is the one-step prediction
+    error alone. The fitted parameters are interpretable: the wavevectors are
+    the spatial spectrum of the population, and :math:`R` is its mixing matrix.
 
     Transport is evaluated in closed form as the block rotations of App. C,
 
-        alpha_i(r + dr) = rot(dr . lambda_i) alpha_i(r),   alpha = R p,
+    .. math::
 
-    rather than through `matrix_exp`, which is what makes a step cheap.
+        \boldsymbol{\alpha}_i(\mathbf{r} + \delta\mathbf{r})
+        = \mathrm{rot}(\delta\mathbf{r} \cdot \boldsymbol{\lambda}_i)\,\boldsymbol{\alpha}_i(\mathbf{r}),
+        \qquad \boldsymbol{\alpha} = R\,\mathbf{p},
 
-    An odd `n_units` leaves one eigenvalue of each skew generator at zero, a
-    direction of population space that does not transport; an even `n_units`
+    rather than through ``matrix_exp``. This makes a step cheap.
+
+    An odd ``n_units`` leaves one eigenvalue of each generator at zero, a
+    direction of population space that is not transported. An even ``n_units``
     can learn the same by driving a wavevector pair to zero.
 
     Parameters
@@ -292,24 +303,21 @@ class CommutingGeneratorFit(GeneratorFit):
     n_units : int
         Number of recorded units.
     lr : float, optional
-        Adam learning rate for `B`; the wavevectors use `wavevector_lr`.
+        Adam learning rate for :math:`B`. The wavevectors use ``wavevector_lr``.
     wavevector_lr : float, optional
-        Adam learning rate for the wavevectors, which live on the scale of
-        the spectrum (several cycles per arena) rather than of `R`.
+        Adam learning rate for the wavevectors. They are on the scale of the
+        spectrum, several cycles per arena, not on the scale of :math:`R`.
     wavevector_scale : float, optional
-        Standard deviation of the Gaussian initialisation of the wavevectors,
-        in cycles per arena half-width (`arena_size`).
+        Standard deviation of the Gaussian initialization of the wavevectors,
+        in cycles per arena half-width (``arena_size``).
     seed : int, optional
-        Seeds initialisation and displacement sampling.
+        Seeds initialization and displacement sampling.
 
     Attributes
     ----------
-    R : torch.Tensor
-        The orthogonal mixing matrix, shape (n_units, n_units).
-    wavevectors : torch.Tensor
-        `(lambda_ix, lambda_iy)` per block, shape (n_units // 2, 2).
     Gx, Gy : torch.Tensor
-        The generators, derived from `R` and the wavevectors.
+        The generators, derived from :math:`R` and the wavevectors, both properties
+        documented below.
     """
 
     def __init__(
@@ -346,12 +354,10 @@ class CommutingGeneratorFit(GeneratorFit):
 
     @property
     def wavevectors(self) -> torch.Tensor:
-        """Wavevector pairs `(lambda_ix, lambda_iy)`, shape (n_units // 2, 2)."""
+        r"""Wavevector pairs :math:`(\lambda_{i,x}, \lambda_{i,y})`, shape (n_units // 2, 2)."""
         return self._lam
 
     def _generator_matrix(self, axis: int) -> torch.Tensor:
-        from expmap.generators import block_diag_skew
-
         Sigma = block_diag_skew(self._lam[:, axis])
         if self.n_units % 2:
             Sigma = torch.block_diag(Sigma, torch.zeros(1, 1))
@@ -369,7 +375,7 @@ class CommutingGeneratorFit(GeneratorFit):
         return self._generator_matrix(1)
 
     def transport(self, p0: torch.Tensor, dr: torch.Tensor) -> torch.Tensor:
-        """Apply exp(dx Gx + dy Gy) as block rotations in the eigenbasis (App. C).
+        r"""Apply :math:`e^{\delta x G_x + \delta y G_y}` as block rotations in the eigenbasis (App. C).
 
         Parameters
         ----------
@@ -399,11 +405,12 @@ class CommutingGeneratorFit(GeneratorFit):
 
 
 def generator_diagnostics(fit: GeneratorFit) -> dict[str, float]:
-    """Measure how far the fitted generators are from the framework's ideal.
+    r"""Measure how far the fitted generators are from the framework's ideal.
 
-    With `enforce_skew` the symmetric fraction is 0 by construction and this is
-    a consistency check; with `enforce_skew=False` it is a measurement, and the
-    contrast is what shows why Appendix K reparameterises rather than hoping.
+    With ``enforce_skew`` the symmetric fraction is 0 by construction and this is
+    a consistency check. With ``enforce_skew=False`` it is a measurement, and the
+    contrast shows why the generators are parameterized to be skew-symmetric
+    rather than penalized toward it.
 
     Parameters
     ----------
@@ -413,8 +420,8 @@ def generator_diagnostics(fit: GeneratorFit) -> dict[str, float]:
     Returns
     -------
     dict[str, float]
-        `commutator_rms`, and per generator `*_rms` alongside
-        `*_symmetric_fraction` — the RMS of `G + G^T` relative to that of `G`,
+        ``commutator_rms``, and per generator ``*_rms`` alongside
+        ``*_symmetric_fraction``, the RMS of :math:`G + G^\mathsf{T}` relative to that of :math:`G`,
         which is 0 for a perfectly skew-symmetric generator.
     """
     Gx, Gy = fit.Gx.detach(), fit.Gy.detach()

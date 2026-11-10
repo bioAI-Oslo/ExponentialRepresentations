@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 import torch
 from scipy.special import j0, jn_zeros
 
@@ -55,6 +56,10 @@ class TestGaussianEigenvalues:
         ev2 = gaussian_eigenvalues(N=100, seed=2)
         assert not np.allclose(ev1, ev2)
 
+    def test_odd_N_raises(self):
+        with pytest.raises(ValueError, match="even"):
+            gaussian_eigenvalues(N=15, seed=0)
+
 
 class TestBesselModuleFrequencies:
     def test_ratios_follow_the_bessel_zeros(self):
@@ -63,28 +68,40 @@ class TestBesselModuleFrequencies:
         k = bessel_module_frequencies(6, arena_size=6.0)
         np.testing.assert_allclose(k[1:] / k[:-1], zeros[1:] / zeros[:-1], rtol=1e-12)
 
-    def test_low_order_average_ratio_is_near_sqrt_two(self):
-        """App. G's normative claim about grid module spacing.
+    def test_spacing_ratios_decrease_toward_one(self):
+        """The spacing prediction of Sec. 2.4 and App. G.
 
-        Successive J0 zero ratios start above 2 and decay toward 1, so the
-        cumulative average passes sqrt(2) at a low truncation — which is where
-        the paper says it sits, inside the observed experimental spread.
+        The ratios of successive J0 zeros are 2.30, 1.57, 1.36, 1.27, ... and
+        decrease toward one, so the predicted spacing ratio grows with grid
+        scale. Beyond the first, the average of the low-order ratios is close
+        to the mean module spacing ratio of about 1.4 reported experimentally.
         """
         k = bessel_module_frequencies(15, arena_size=6.0)
         ratios = k[1:] / k[:-1]
-        cumulative = np.cumsum(ratios) / np.arange(1, len(ratios) + 1)
 
-        assert ratios[0] > 2.0, "first ratio should start high"
-        assert cumulative[-1] < np.sqrt(2), "and decay through sqrt(2)"
-        # Truncating at 8 ratios lands within 5% of sqrt(2).
-        assert abs(cumulative[7] - np.sqrt(2)) / np.sqrt(2) < 0.05
+        np.testing.assert_allclose(ratios[:4], [2.30, 1.57, 1.36, 1.27], atol=0.005)
+        assert np.all(np.diff(ratios) < 0)
+        assert ratios[-1] > 1.0
+        np.testing.assert_allclose(ratios[1:4].mean(), 1.40, atol=0.01)
 
     def test_periods_sets_the_absolute_scale(self):
-        """The lowest module should show `periods` repetitions across the arena."""
+        """The lowest module shows `periods` peak-to-peak spacings across the arena.
+
+        Measured on the pattern itself: the peaks of three plane waves of
+        wavenumber k at 60 degree spacing lie 4 pi / (k sqrt(3)) apart.
+        """
         arena, periods = 6.0, 2.0
         k = bessel_module_frequencies(4, arena_size=arena, periods=periods)
-        grid_period = 2 * np.pi / (k[0] * np.sqrt(3))
-        np.testing.assert_allclose(2 * arena / grid_period, periods, rtol=1e-12)
+
+        phi = np.arange(3) * np.pi / 3
+        s = np.linspace(0, 4 * arena, 40001)
+        x, y = s * np.cos(np.pi / 6), s * np.sin(np.pi / 6)  # a lattice direction
+        pattern = np.cos(k[0] * (np.outer(x, np.cos(phi)) + np.outer(y, np.sin(phi)))).sum(axis=1)
+        peaks = s[1:-1][(pattern[1:-1] > pattern[:-2]) & (pattern[1:-1] > pattern[2:]) & (pattern[1:-1] > 2.9)]
+        grid_period = np.diff(peaks).mean()
+
+        np.testing.assert_allclose(grid_period, 4 * np.pi / (k[0] * np.sqrt(3)), rtol=1e-6)
+        np.testing.assert_allclose(2 * arena / grid_period, periods, rtol=1e-6)
 
     def test_increasing(self):
         k = bessel_module_frequencies(8, arena_size=3.0)
@@ -141,7 +158,7 @@ class TestFourierBesselSimilarity:
             similarity = (model(positions, p0) @ origin).numpy()
         return similarity.max() - similarity.min(), similarity.mean()
 
-    def test_coprime_offsets_suppress_angular_dependence(self):
+    def test_offsets_suppress_angular_dependence(self):
         """M = 3 with L = 2 pushes the lowest harmonic from cos(6t) to cos(12t)."""
         one_offset, p0_one, _, _ = self._model(K=5, M=3, n_offsets=1)
         two_offsets, p0_two, _, _ = self._model(K=5, M=3, n_offsets=2)
@@ -207,7 +224,7 @@ class TestBuildGenerators:
         from expmap.linalg import random_orthogonal_matrix
 
         R = random_orthogonal_matrix(6, seed=42)
-        Gx, Gy = build_generators(sigma_x, sigma_y, R)
+        Gx, _Gy = build_generators(sigma_x, sigma_y, R)
 
         ev_sigma = torch.sort(torch.linalg.eigvals(sigma_x).imag.abs())[0]
         ev_G = torch.sort(torch.linalg.eigvals(Gx).imag.abs())[0]
@@ -220,7 +237,7 @@ class TestBuildGenerators:
         from expmap.linalg import random_orthogonal_matrix
 
         R = random_orthogonal_matrix(4, seed=42)
-        Gx, Gy = build_generators(sigma, sigma, R)
+        Gx, _Gy = build_generators(sigma, sigma, R)
         torch.testing.assert_close(Gx + Gx.T, torch.zeros_like(Gx), atol=1e-6, rtol=0)
 
     def test_with_context(self):
@@ -230,6 +247,6 @@ class TestBuildGenerators:
         from expmap.linalg import random_orthogonal_matrix
 
         R = random_orthogonal_matrix(4, seed=42)
-        Gx, Gy, Gs = build_generators_with_context(sigma, sigma, sigma, R)
+        Gx, _Gy, Gs = build_generators_with_context(sigma, sigma, sigma, R)
         assert Gx.shape == (4, 4)
         assert Gs.shape == (4, 4)

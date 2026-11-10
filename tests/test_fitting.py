@@ -1,7 +1,7 @@
 """Tests for generator fitting (Appendix K).
 
 The fit is checked on *predictions*, not on parameters. Given a set of ratemaps
-there is no unique pair (Gx, Gy) — the data only constrain the generators on the
+there is no unique pair (Gx, Gy). The data only constrain the generators on the
 subspace the population actually spans, and any change that leaves
 `exp(dr . G) p` unchanged there is invisible. So these tests ask whether the fit
 transports correctly, commutes, and extrapolates.
@@ -74,7 +74,7 @@ class TestPixelsToArena:
 def fit_with_generators(model, enforce_skew=True):
     """A GeneratorFit whose generators are exactly those of `model`.
 
-    For the skew parameterisation `G = A - A^T`, setting `A = G / 2` reproduces
+    For the skew parameterization `G = A - A^T`, setting `A = G / 2` reproduces
     a skew `G` exactly.
     """
     fit = GeneratorFit(n_units=model.Gx.shape[0], enforce_skew=enforce_skew, seed=0)
@@ -94,15 +94,15 @@ class TestEnforceSkew:
         fit = GeneratorFit(n_units=16, enforce_skew=False, seed=0)
         assert not torch.allclose(fit.Gx, -fit.Gx.T, atol=1e-3)
 
-    def test_skew_parameterisation_reproduces_a_skew_target(self):
+    def test_skew_parameterization_reproduces_a_skew_target(self):
         model, _ = expmap.grid_cell_model(M=3, n_copies=2, seed=0)
         torch.testing.assert_close(fit_with_generators(model).Gx, model.Gx, atol=1e-6, rtol=0)
 
     def test_skew_transport_preserves_norm_when_extrapolating(self):
-        """Why App. K reparameterises: orthogonal transport, so ||p|| cannot drift.
+        """Why App. K reparameterizes: orthogonal transport, so ||p|| cannot drift.
 
         Checked far outside any displacement a fit would train on, which is
-        exactly the regime Fig. 9c generates in.
+        the regime of the doubled arena in App. K.
         """
         p0 = torch.randn(24)
         p0 = p0 / p0.norm()
@@ -139,7 +139,7 @@ class TestFit:
         Trained on steps of at most 2 pixels; checked on a 5-pixel step, which
         no training batch contained.
         """
-        ratemaps, model, p0 = synthetic_ratemaps()
+        ratemaps, _model, _p0 = synthetic_ratemaps()
         fit = GeneratorFit(n_units=ratemaps.shape[-1], seed=0)
         history = fit.fit(ratemaps, n_steps=1500, arena_size=1.0, progress=False)
 
@@ -162,15 +162,15 @@ class TestFit:
         fit.fit(ratemaps, n_steps=1500, progress=False)
         assert generator_diagnostics(fit)["commutator_rms"] < initial / 10
 
-    def test_unpenalised_generators_need_not_commute(self):
+    def test_unpenalized_generators_need_not_commute(self):
         """Without the penalty nothing forces path integration to be consistent."""
         ratemaps, _, _ = synthetic_ratemaps()
-        penalised = GeneratorFit(n_units=ratemaps.shape[-1], commutator_weight=1.0, seed=0)
+        penalized = GeneratorFit(n_units=ratemaps.shape[-1], commutator_weight=1.0, seed=0)
         free = GeneratorFit(n_units=ratemaps.shape[-1], commutator_weight=0.0, seed=0)
-        penalised.fit(ratemaps, n_steps=800, progress=False)
+        penalized.fit(ratemaps, n_steps=800, progress=False)
         free.fit(ratemaps, n_steps=800, progress=False)
 
-        assert generator_diagnostics(penalised)["commutator_rms"] < generator_diagnostics(free)["commutator_rms"]
+        assert generator_diagnostics(penalized)["commutator_rms"] < generator_diagnostics(free)["commutator_rms"]
 
     def test_seed_is_reproducible(self):
         ratemaps, _, _ = synthetic_ratemaps()

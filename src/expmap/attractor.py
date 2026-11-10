@@ -1,43 +1,53 @@
-"""Continuous attractor network dynamics underlying the exponential map.
+r"""Continuous attractor network dynamics underlying the exponential map.
 
-The exponential map is not only an algebraic construction: it is the on-manifold
-dynamics of a gain-modulated continuous attractor neural network (Sec. 3.1,
-Appendix J.1). This module implements that network so the claim can be checked
-rather than asserted.
+The exponential map is also the on-manifold dynamics of a gain-modulated
+continuous attractor neural network (Sec. 3.1, Appendix J.1). This module
+implements that network, so the claim can be tested numerically.
 
-The network state z in R^N evolves as
+The network state :math:`\mathbf{z} \in \mathbb{R}^N` evolves as (Eq. 7)
 
-    tau * zdot = U(v) z - M sigma(z),      sigma(z) = (||z||^2 - 1) z     (Eq. 7)
+.. math::
 
-with U(v) skew-symmetric and M positive definite. The Lyapunov energy
+    \tau\dot{\mathbf{z}} = U(\mathbf{v})\,\mathbf{z} - M\sigma(\mathbf{z}),
+    \qquad \sigma(\mathbf{z}) = (\lVert\mathbf{z}\rVert^2 - 1)\,\mathbf{z},
 
-    E(z) = (||z||^2 - 1)^2 / 2                                           (Eq. 8)
+with :math:`U(\mathbf{v})` skew-symmetric and :math:`M` positive definite. The
+Lyapunov energy (Eq. 8)
 
-is non-increasing, because skew-symmetry makes the transport term z^T U z vanish
-identically and positive definiteness makes the remaining term negative:
+.. math::
 
-    tau * Edot = -2 (||z||^2 - 1)^2 z^T M z <= 0
+    E = \tfrac{1}{2}(\lVert\mathbf{z}\rVert^2 - 1)^2
 
-So the flow converges to the unit hypersphere without a topology being imposed.
-Once on it sigma(z*) = 0, the attractor term drops out, and what is left is pure
-transport, `tau zdot* = U(v) z*`, whose solution is the exponential map
-`z*(t) = expm(t U(v) / tau) z*(0)`.
+is non-increasing. Skew-symmetry makes the transport term
+:math:`\mathbf{z}^T U \mathbf{z}` vanish, and positive definiteness makes the
+remaining term
 
-This module is numpy, like `analysis`; the generator construction in `model` and
-`generators` is torch.
+.. math::
+
+    \tau\dot{E} = -2(\lVert\mathbf{z}\rVert^2 - 1)^2\,\mathbf{z}^T M \mathbf{z} \le 0,
+
+zero on the unit hypersphere and negative everywhere else except the origin.
+The flow therefore converges to the hypersphere without a predefined toroidal
+topology. On the sphere :math:`\sigma(\mathbf{z}^*) = 0`, so the attractor term vanishes and pure
+transport remains, :math:`\tau\dot{\mathbf{z}}^* = U(\mathbf{v})\,\mathbf{z}^*`.
+Its solution is the exponential map
+
+.. math::
+
+    \mathbf{z}^*(t) = e^{t U(\mathbf{v}) / \tau}\,\mathbf{z}^*(0).
 """
 
 import numpy as np
-import scipy
+from scipy.linalg import expm
 
 
 def skew_symmetric_matrix(n: int, seed: int | None = None) -> np.ndarray:
-    """Sample a random skew-symmetric transport matrix U.
+    r"""Sample a random skew-symmetric transport matrix :math:`U`.
 
-    Built as A - A.T from a Gaussian A, which is skew-symmetric by construction.
-    Skew-symmetry is what makes z^T U z vanish and hence the energy
-    non-increasing; it is the same condition that makes the algebraic generators
-    equinorm (Sec. 2.3).
+    Built as :math:`A - A^\mathsf{T}` from a Gaussian :math:`A`. Skew-symmetry
+    makes :math:`\mathbf{z}^\mathsf{T} U \mathbf{z}` vanish, so
+    transport leaves the Lyapunov energy unchanged. It is the same condition that
+    gives the generators equinorm representations (Sec. 2.3).
 
     Parameters
     ----------
@@ -57,11 +67,11 @@ def skew_symmetric_matrix(n: int, seed: int | None = None) -> np.ndarray:
 
 
 def positive_definite_matrix(n: int, seed: int | None = None) -> np.ndarray:
-    """Sample a random positive definite attractor matrix M.
+    r"""Sample a random positive definite attractor matrix :math:`M`.
 
-    Built as A.T @ A from a Gaussian A, which is positive definite almost
-    surely. Positive definiteness is what makes the energy strictly decrease off
-    the manifold.
+    Built as :math:`A^\mathsf{T} A` from a Gaussian :math:`A`, which is positive definite almost
+    surely. Positive definiteness makes the Lyapunov energy strictly decrease
+    off the manifold.
 
     Parameters
     ----------
@@ -81,7 +91,7 @@ def positive_definite_matrix(n: int, seed: int | None = None) -> np.ndarray:
 
 
 def lyapunov_energy(z: np.ndarray) -> np.ndarray:
-    """Lyapunov energy E = (||z||^2 - 1)^2 / 2 (Eq. 8).
+    r"""Lyapunov energy :math:`E = (\lVert\mathbf{z}\rVert^2 - 1)^2 / 2` (Eq. 8).
 
     Measures deviation from the unit hypersphere, and is zero exactly on it.
 
@@ -93,13 +103,13 @@ def lyapunov_energy(z: np.ndarray) -> np.ndarray:
     Returns
     -------
     numpy.ndarray
-        Scalar energy, or shape (steps,) for a trajectory.
+        Scalar energy for one state, or shape (steps,) for a trajectory.
     """
     return (np.sum(z**2, axis=-1) - 1) ** 2 / 2
 
 
 def hypersphere_step(z: np.ndarray, U: np.ndarray, M: np.ndarray, tau: float = 1.0) -> np.ndarray:
-    """Evaluate zdot for the hypersphere attractor network (Eq. 7).
+    r"""Evaluate :math:`\dot{\mathbf{z}}` for the hypersphere attractor network (Eq. 7).
 
     Parameters
     ----------
@@ -116,7 +126,7 @@ def hypersphere_step(z: np.ndarray, U: np.ndarray, M: np.ndarray, tau: float = 1
     Returns
     -------
     numpy.ndarray
-        Time derivative zdot, shape (N,).
+        Time derivative :math:`\dot{\mathbf{z}}`, shape (N,).
     """
     sigma = (z @ z - 1) * z
     return (U @ z - M @ sigma) / tau
@@ -130,20 +140,26 @@ def simulate(
     T: float,
     tau: float = 1.0,
 ) -> np.ndarray:
-    """Integrate the attractor dynamics with forward Euler.
+    r"""Integrate the attractor dynamics with forward Euler.
 
-    Euler is what the figure used and is adequate here because the flow is
-    strongly contracting onto the manifold; `dt` must nonetheless be small
-    relative to the largest eigenvalue of U, which grows like sqrt(N) for
-    `skew_symmetric_matrix`.
+    Forward Euler is adequate because the flow contracts strongly onto the
+    manifold. ``dt`` must still be small against the largest eigenvalue of
+    :math:`U`, which grows like :math:`\sqrt{N}` for ``skew_symmetric_matrix``.
 
     The state settles just *outside* the manifold rather than on it. A single
     Euler step on the transport term inflates the norm exactly, since
-    `||z + dt U z||^2 = ||z||^2 + dt^2 ||U z||^2` — the cross term vanishes
-    because `z^T U z = 0` for skew U — and that balances the inward pull at
-    `||z|| - 1 = O(dt)`. At N = 128 and dt = 5e-5 the offset is about 1e-5.
-    It shrinks with dt, not with longer integration, and it sets the accuracy
-    floor of anything built on this simulation.
+
+    .. math::
+
+        \lVert\mathbf{z} + \delta t\, U\mathbf{z}\rVert^2
+        = \lVert\mathbf{z}\rVert^2 + \delta t^2 \lVert U\mathbf{z}\rVert^2
+
+    (the cross term vanishes because :math:`\mathbf{z}^\mathsf{T} U \mathbf{z} = 0`
+    for skew :math:`U`), and that balances the inward pull at
+    :math:`\lVert\mathbf{z}\rVert - 1 = O(\delta t)`. At :math:`N = 128` and
+    ``dt = 5e-5`` the offset is about 1e-5. It shrinks with ``dt``, not with longer
+    integration, and it sets the accuracy floor of anything built on this
+    simulation.
 
     Parameters
     ----------
@@ -154,16 +170,16 @@ def simulate(
     dt : float
         Integration step.
     T : float
-        Total simulated time. The number of steps is int(T / dt).
+        Total simulated time. The number of steps is round(T / dt).
     tau : float, optional
         Effective time constant.
 
     Returns
     -------
     numpy.ndarray
-        Trajectory of shape (int(T / dt), N), starting at z0.
+        Trajectory of shape (round(T / dt), N), starting at z0.
     """
-    steps = int(T / dt)
+    steps = round(T / dt)
     trajectory = np.zeros((steps, len(z0)))
     z = z0.copy()
     trajectory[0] = z
@@ -181,17 +197,17 @@ def exponential_map_trajectory(
     star_index: int,
     tau: float = 1.0,
 ) -> np.ndarray:
-    """Predicted on-manifold trajectory expm((t - t*) U / tau) z*.
+    r"""Predicted on-manifold trajectory :math:`e^{(t - t^*) U / \tau}\,\mathbf{z}^*`.
 
     This is the closed-form solution the network is compared against: once the
-    state reaches the manifold at time t*, pure transport should carry it along
-    the exponential map (Appendix J.1).
+    state reaches the manifold at time :math:`t^*`, pure transport should carry
+    it along the exponential map (Appendix J.1).
 
-    Evaluated incrementally from a single matrix exponential. Because U is
-    skew-symmetric, `E = expm(dt U / tau)` is orthogonal, so stepping forward is
-    a multiplication by E and stepping backward is a multiplication by E.T. That
-    replaces one `expm` per timestep with one in total — about 90x faster at
-    N = 128 over 600 steps, and identical to machine precision.
+    Evaluated from a single matrix exponential. Because :math:`U` is
+    skew-symmetric, :math:`E = e^{\delta t\, U / \tau}` is orthogonal, so stepping
+    forward is a multiplication by :math:`E` and stepping backward one by
+    :math:`E^\mathsf{T}`. This replaces one ``expm`` per timestep with one in total
+    and agrees with the per-step form to machine precision.
 
     Parameters
     ----------
@@ -204,7 +220,7 @@ def exponential_map_trajectory(
     dt : float
         Integration step, matching the simulation.
     star_index : int
-        Index of `z_star` within the trajectory, i.e. t* = star_index * dt.
+        Index of ``z_star`` within the trajectory, so :math:`t^*` is ``star_index * dt``.
     tau : float, optional
         Effective time constant.
 
@@ -213,7 +229,7 @@ def exponential_map_trajectory(
     numpy.ndarray
         Predicted trajectory of shape (steps, N).
     """
-    E = scipy.linalg.expm(U * dt / tau)
+    E = expm(U * dt / tau)
 
     predicted = np.zeros((steps, len(z_star)))
     z = z_star.copy()
@@ -221,7 +237,7 @@ def exponential_map_trajectory(
         predicted[i] = z
         z = E @ z
 
-    z = E.T @ z_star  # E is orthogonal, so E.T runs the flow backwards
+    z = E.T @ z_star
     for i in range(star_index - 1, -1, -1):
         predicted[i] = z
         z = E.T @ z
