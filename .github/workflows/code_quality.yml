@@ -1,0 +1,34 @@
+name: Code Quality
+
+on:
+  push:
+    branches: "*"
+  pull_request:
+    branches: "*"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          python-version-file: .python-version
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Check formatting (Ruff)
+        run: uv run ruff format --check .
+
+      - name: Lint (Ruff)
+        run: uv run ruff check .
+
+      - name: Type check (Pyright)
+        run: uv run pyright
+
+      - name: Run tests (Pytest)
+        run: uv run pytest
