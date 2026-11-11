@@ -56,7 +56,6 @@ exclude_patterns:
   - ".pytest_cache/**"
   - ".venv/**"
   - "_build/**"
-  - "notebooks/archive/**"
   - "**.ipynb_checkpoints"
   - ".DS_Store"
   - "Thumbs.db"
