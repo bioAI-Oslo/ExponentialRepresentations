@@ -143,6 +143,26 @@ class TestCaveat:
         assert rms(A @ B - B @ A) > 0.1 * rms(A) * rms(B)
 
 
+class TestRecordedWeights:
+    def test_recorded_weights_match_the_rms_history(self):
+        rng = np.random.default_rng(0)
+        W0 = rng.standard_normal((6, 6)) * 0.1
+        rates = rng.standard_normal((201, 6))
+
+        W, history = learn_connectivity(rates, W0=W0, record_weights=True)
+        weights = history["weights"]
+
+        assert weights.shape == (200, 6, 6)
+        np.testing.assert_array_equal(weights[0], W0)
+        symmetric = np.sqrt(np.mean((weights + weights.transpose(0, 2, 1)) ** 2, axis=(1, 2)))
+        np.testing.assert_allclose(symmetric, history["symmetric_rms"], rtol=1e-12)
+        assert not np.array_equal(weights[-1], W)  # recorded before the last step
+
+    def test_not_recorded_by_default(self):
+        _, history = learn_connectivity(np.random.default_rng(0).standard_normal((50, 4)))
+        assert "weights" not in history
+
+
 class TestReproducibility:
     def test_seed_reproduces(self):
         rates = np.random.default_rng(0).standard_normal((500, 8))

@@ -96,6 +96,7 @@ def learn_connectivity(
     lag: int = 1,
     W0: np.ndarray | None = None,
     seed: int | None = None,
+    record_weights: bool = False,
 ) -> tuple[np.ndarray, dict[str, np.ndarray]]:
     """Run the antisymmetric Hebbian rule over an activity sequence.
 
@@ -115,13 +116,17 @@ def learn_connectivity(
         0.1, drawn from ``seed``.
     seed : int, optional
         Seed for the default initialization. Ignored when ``W0`` is given.
+    record_weights : bool, optional
+        Also keep the weights before every step, as ``weights`` of shape
+        (n_steps, n_units, n_units). Fig. 8 draws every entry of the symmetric
+        and antisymmetric parts over the iterations from this.
 
     Returns
     -------
     tuple[numpy.ndarray, dict[str, numpy.ndarray]]
         Final weights of shape (n_units, n_units), and the RMS of the symmetric
         and antisymmetric parts before every step, as ``symmetric_rms`` and
-        ``antisymmetric_rms`` of shape (n_steps,).
+        ``antisymmetric_rms`` of shape (n_steps,), plus ``weights`` when asked for.
     """
     n_units = rates.shape[1]
     W = np.random.default_rng(seed).standard_normal((n_units, n_units)) * 0.1 if W0 is None else W0
@@ -129,15 +134,21 @@ def learn_connectivity(
     n_steps = len(rates) - lag
     symmetric_rms = np.zeros(n_steps)
     antisymmetric_rms = np.zeros(n_steps)
+    weights: np.ndarray | None = np.zeros((n_steps, n_units, n_units)) if record_weights else None
 
     for t in range(n_steps):
         symmetric_rms[t] = np.sqrt(np.mean((W + W.T) ** 2))
         antisymmetric_rms[t] = np.sqrt(np.mean((W - W.T) ** 2))
+        if weights is not None:
+            weights[t] = W
 
         outer = np.outer(rates[t], rates[t + lag])
         W = W + eta * (outer - outer.T) - alpha * W
 
-    return W, {"symmetric_rms": symmetric_rms, "antisymmetric_rms": antisymmetric_rms}
+    history = {"symmetric_rms": symmetric_rms, "antisymmetric_rms": antisymmetric_rms}
+    if weights is not None:
+        history["weights"] = weights
+    return W, history
 
 
 def transported_activity(
