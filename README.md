@@ -32,11 +32,11 @@ uv sync --all-extras
 
 Everything runs through `uv run`, for instance `uv run jupyter lab` to open the notebooks or `uv run pytest` for the tests. The [documentation](https://bioai-oslo.github.io/ExponentialRepresentations/) covers the rest:
 
-- [Basic usage](docs/basic_usage.ipynb) builds the three models of the paper and shows the pipeline from positions to rate maps and similarity.
-- [Reproducing the results](notebooks/README.md) lists the notebooks, the figures they produce and what they need to run.
-- [Data](data/README.md) describes the recorded rate maps and the saved fits, with their sources and licenses.
-- [Developer notes](docs/dev_guide.md) cover the environment, the checks and the documentation build.
-- The [API reference](docs/api/index.md) documents the package module by module.
+- [Basic usage](https://bioai-oslo.github.io/ExponentialRepresentations/docs/basic_usage.html) builds the three models of the paper and shows the pipeline from positions to rate maps and similarity.
+- [Reproducing the results](https://bioai-oslo.github.io/ExponentialRepresentations/notebooks/README.html) lists the notebooks, the figures they produce and what they need to run.
+- [Data](https://bioai-oslo.github.io/ExponentialRepresentations/data/README.html) describes the recorded rate maps and the saved fits, with their sources and licenses.
+- [Developer notes](https://bioai-oslo.github.io/ExponentialRepresentations/docs/dev_guide.html) cover the environment, the checks and the documentation build.
+- The [API reference](https://bioai-oslo.github.io/ExponentialRepresentations/docs/api/index.html) documents the package module by module.
 
 ## Citation
 
