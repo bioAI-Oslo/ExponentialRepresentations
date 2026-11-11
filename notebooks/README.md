@@ -36,7 +36,7 @@ refitting.
 | --- | --- | --- |
 | [`ca1_population`](ca1_population.ipynb) | CA1 unit selection over all rats | — |
 | [`fit_grid_cells`](fit_grid_cells.ipynb) | Commuting fit to the grid cells, writes `data/gc_fit_commuting.npz` | Fig. 4, App. K |
-| [`fit_place_cells`](fit_place_cells.ipynb) | Commuting fit to the CA1 units of one rat, writes `data/ca1_fit_one_animal_si*.npz` | Fig. 4, App. K |
+| [`fit_place_cells`](fit_place_cells.ipynb) | Commuting fit to the CA1 units of one rat, writes `data/ca1_fit_one_animal_si0.50.npz` | Fig. 4, App. K |
 | [`fitting_figures`](fitting_figures.ipynb) | The figure panels, drawn from the saved fits | Fig. 4, Figs. 9 to 11 |
 | [`fitted_similarity_structure`](fitted_similarity_structure.ipynb) | Similarity structure of the data and the fitted models | Fig. 12 (App. K) |
 
