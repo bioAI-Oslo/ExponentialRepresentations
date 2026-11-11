@@ -314,5 +314,6 @@ def split_half_correlation(
             rate, occupancy = ratemap(u.spike_t, s.t, xy, valid & half, box, n_bins, sigma)
             maps.append((rate, occupancy > 0))
         both = maps[0][1] & maps[1][1]
-        result.append(float(np.corrcoef(maps[0][0][both], maps[1][0][both])[0, 1]))
+        with np.errstate(invalid="ignore"):  # NaN for a unit silent in one half
+            result.append(float(np.corrcoef(maps[0][0][both], maps[1][0][both])[0, 1]))
     return np.array(result)
