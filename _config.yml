@@ -1,0 +1,61 @@
+# Jupyter Book configuration. Build with `uv run jupyter-book build .`
+# Reference: https://jupyterbook.org/en/stable/customize/config.html
+
+title: Exponential Map Models
+author: Markus Pettersen, Nicolai Haug, Joakim Bergli, Thomas M. Surowiec and Mikkel Lepperød
+copyright: "2026"
+only_build_toc_files: true
+
+# The notebooks are included with their stored outputs. They are not executed on
+# build: the CA1 notebooks need the untracked extraction of the raw recordings, and
+# the figure notebooks take tens of minutes between them.
+execute:
+  execute_notebooks: "off"
+
+repository:
+  url: https://github.com/bioAI-Oslo/ExponentialRepresentations
+  branch: main
+
+html:
+  use_issues_button: true
+  use_repository_button: true
+  home_page_in_navbar: true
+
+parse:
+  myst_enable_extensions:
+    - amsmath
+    - dollarmath
+    - linkify
+
+sphinx:
+  extra_extensions:
+    - sphinx.ext.autodoc
+    - sphinx.ext.napoleon
+    - sphinx.ext.viewcode
+  config:
+    html_last_updated_fmt: "%b %d, %Y"
+    html_theme_options:
+      navigation_with_keys: false
+    # The docstrings are NumPy style and already state types, shapes and the
+    # paper reference in prose; keep the signature as the one place types appear.
+    napoleon_numpy_docstring: true
+    napoleon_google_docstring: false
+    autodoc_member_order: bysource
+    autodoc_typehints: signature
+    autodoc_default_options:
+      members: true
+      undoc-members: false
+      show-inheritance: true
+
+# Only files in the table of contents are built; Sphinx still collects markdown in the
+# dot-directories, and these patterns keep it out of the consistency check.
+exclude_patterns:
+  - ".agent/**"
+  - ".claude/**"
+  - ".github/**"
+  - ".pytest_cache/**"
+  - ".venv/**"
+  - "_build/**"
+  - "**.ipynb_checkpoints"
+  - ".DS_Store"
+  - "Thumbs.db"

@@ -1,0 +1,153 @@
+[build-system]
+requires = ["uv_build>=0.9.24,<0.10.0"]
+build-backend = "uv_build"
+
+[project]
+name = "expmap"
+version = "1.0.0"
+description = "Generating interpretable neural spatial representations using the matrix exponential."
+readme = "README.md"
+authors = [{ name = "Markus Pettersen" }, { name = "Nicolai Haug" }]
+requires-python = ">=3.13"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = [
+    "neuroscience",
+    "computational-neuroscience",
+    "spatial-navigation",
+    "grid-cells",
+    "place-cells",
+    "matrix-exponential",
+    "path-integration",
+]
+classifiers = [
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "matplotlib>=3.10",
+    "numpy>=2.0",
+    "scipy>=1.12",
+    "torch>=2.0",
+    "tqdm>=4.60",
+]
+
+[project.urls]
+homepage = "https://bioai-oslo.github.io/ExponentialRepresentations/"
+repository = "https://github.com/bioAI-Oslo/ExponentialRepresentations"
+
+[project.optional-dependencies]
+dev = [
+    "notebook>=7.5",
+    "pre-commit>=4.5",
+    "pytest>=8.0",
+    "ruff>=0.14",
+    "pyright[nodejs]>=1.1.414",
+]
+docs = ["jupyter-book>=1.0.4,<2"]
+
+[tool.pytest.ini_options]
+# The tracked suite lives in tests/; without this, a bare `uv run pytest` also
+# collects the gitignored working directories (exploration/, reports/)
+testpaths = ["tests"]
+
+[tool.pyright]
+# Pylance (VS Code) reads this section too, so the editor and `uv run pyright`
+# report identical diagnostics from one configuration.
+include = ["src", "tests", "notebooks/experimental_data"]
+typeCheckingMode = "standard"
+
+[tool.ruff]
+# Notebooks are linted (they are the figure reproduction code) but not formatted;
+# see [tool.ruff.format].
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+]
+
+line-length = 120
+indent-width = 4
+target-version = "py313"
+
+[tool.ruff.lint]
+select = [
+    "F",   # Pyflakes rules
+    "W",   # PyCodeStyle warnings
+    "E",   # PyCodeStyle errors
+    "B",   # Bugbear rules
+    "I",   # Sort imports properly
+    "N",   # Naming conventions
+    "UP",  # Warn if certain things can changed due to newer Python versions
+    "C4",  # Catch incorrect use of comprehensions, dict, list, etc
+    "ISC", # Good use of string concatenation
+    "ICN", # Use common import conventions
+    "RET", # Good return practices
+    "SIM", # Common simplification rules
+    "TID", # Some good import practices
+    "TC",  # Enforce importing certain types in a TYPE_CHECKING block
+    "PTH", # Use pathlib instead of os.path
+    "NPY", # Some numpy-specific things
+    "PD",  # Pandas-specific rules
+    "RUF", # Ruff-specific rules
+]
+
+ignore = [
+    "E501", # Line length handled by formatter
+    "N806", # UPPER_CASE used for constant local variables
+    # N802/N803/N812 are off so the mathematical names match the paper: R, Gx,
+    # Q, Sigma. N802 covers `Gx`/`Gy` exposed as properties in `fitting.py`.
+    "N802",
+    "N803",
+    "N812",
+]
+
+unfixable = [
+    "B",      # Avoid trying to fix flake8-bugbear (`B`) violations
+    "F841",   # Unused variable. ruff keeps the call, but mostly we want to get rid of it all
+    "F601",   # Automatic fix might obscure issue
+    "F602",   # Automatic fix might obscure issue
+    "UP036",  # Sometimes it's better to just noqa this
+    "SIM222", # Automatic fix might obscure issue
+    "SIM223", # Automatic fix might obscure issue
+]
+
+# Allow unused variables when underscore-prefixed
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "E402"]
+"**/{tests,docs,tools}/*" = ["E402"]
+# Notebook cells zip figure axes against equal-length lists of panels; `strict=`
+# on every call would be noise there.
+"*.ipynb" = ["B905"]
+
+[tool.ruff.format]
+# The executed notebooks were never formatted; formatting them would rewrite
+# every cell of figure code nobody is working on.
+exclude = ["*.ipynb"]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+docstring-code-format = false
+docstring-code-line-length = "dynamic"

@@ -1,0 +1,50 @@
+# Table of contents for the Jupyter Book. The notebooks hang off their overview page,
+# notebooks/README.md: the figure notebooks in the order of the figures, then the fits,
+# then the verification notebook.
+format: jb-book
+root: README
+
+parts:
+  - caption: Demo
+    chapters:
+      - file: docs/basic_usage
+
+  - caption: Reproducing the results
+    chapters:
+      - file: notebooks/README
+        sections:
+          - file: notebooks/roots_of_unity
+          - file: notebooks/remapping
+          - file: notebooks/reward_navigation
+          - file: notebooks/bessel_zeros
+          - file: notebooks/place_like_fields
+          - file: notebooks/learning_rule
+          - file: notebooks/ca1_population
+          - file: notebooks/fit_grid_cells
+          - file: notebooks/fit_place_cells
+          - file: notebooks/fitting_figures
+          - file: notebooks/fitted_similarity_structure
+          - file: notebooks/attractor_network
+
+  - caption: Data
+    chapters:
+      - file: data/README
+
+  - caption: Development
+    chapters:
+      - file: docs/dev_guide
+
+  - caption: API reference
+    chapters:
+      - file: docs/api/index
+        sections:
+          - file: docs/api/model
+          - file: docs/api/generators
+          - file: docs/api/linalg
+          - file: docs/api/analysis
+          - file: docs/api/navigation
+          - file: docs/api/attractor
+          - file: docs/api/fitting
+          - file: docs/api/plasticity
+          - file: docs/api/simulation
+          - file: docs/api/plotting
