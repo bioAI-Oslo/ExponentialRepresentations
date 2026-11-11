@@ -10,6 +10,7 @@ not tracked.
 | `ca1_events.npz` | Tracked head position and spike times of the CA1 release, reduced to one file: 114 open-field sessions of five rats and 2729 cluster-cut units, with the recording system, duration and tracking scale of every session and the tetrode, cluster and mean rate of every unit. The arrays are documented in `notebooks/experimental_data/ca1.py`. 55 MB. | `notebooks/experimental_data/extract_ca1.py` |
 | `gc_fit_commuting.npz` | The generators fitted to the grid-cell maps (`Gx`, `Gy`, `R`, `wavevectors`), the maps themselves (`experimental`), the regenerated maps and the extrapolation from the central three quarters of the arena. | `notebooks/fit_grid_cells.ipynb` |
 | `ca1_fit_one_animal_si0.50.npz` | The same for 103 CA1 units of one rat. The rate maps the fit was made on are stored under `experimental`, shape `(103, 32, 32)`, with the recording date, tetrode and cluster of every unit. | `notebooks/fit_place_cells.ipynb` |
+| `reward_navigation_spectra.npz` | The generator eigenvalues of Fig. 5, `lambda_x`, `lambda_y` and `lambda_s`, 150 each. They were drawn from a Gaussian without a seed when the figure was made, so they are kept as data. | — |
 
 `notebooks/ca1_population.ipynb` and `notebooks/fit_place_cells.ipynb` read `ca1_events.npz`,
 and `notebooks/fitting_figures.ipynb` and `notebooks/fitted_similarity_structure.ipynb` read the
