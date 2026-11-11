@@ -34,7 +34,7 @@ Everything runs through `uv run`, for instance `uv run jupyter lab` to open the 
 
 - [Basic usage](docs/basic_usage.ipynb) builds the three models of the paper and shows the pipeline from positions to rate maps and similarity.
 - [Reproducing the results](notebooks/README.md) lists the notebooks, the figures they produce and what they need to run.
-- [Data](data/README.md) describes the recorded rate maps and the saved fits, with their sources and licences.
+- [Data](data/README.md) describes the recorded rate maps and the saved fits, with their sources and licenses.
 - [Developer notes](docs/dev_guide.md) cover the environment, the checks and the documentation build.
 - The [API reference](docs/api/index.md) documents the package module by module.
 
@@ -54,4 +54,4 @@ Everything runs through `uv run`, for instance `uv run jupyter lab` to open the 
 
 The code is released under the [MIT License](LICENSE).
 
-The files in `data/` are derived from published recordings and carry the licences of their sources. The CA1 fit is distributed under CC BY-SA 4.0. See [data/README.md](data/README.md).
+The files in `data/` are derived from published recordings and carry the licenses of their sources. The CA1 fit is distributed under CC BY-SA 4.0. See [data/README.md](data/README.md).

@@ -16,7 +16,7 @@ not tracked.
 and `notebooks/fitting_figures.ipynb` and `notebooks/fitted_similarity_structure.ipynb` read the
 two fit files. All four run from a clone as is.
 
-## Sources and licences
+## Sources and licenses
 
 **Grid cells.** Gardner, R. J., Hermansen, E., Pachitariu, M., Burak, Y., Baas, N. A.,
 Dunn, B. A., Moser, M.-B. and Moser, E. I. (2022). Toroidal topology of population activity in
@@ -29,7 +29,7 @@ https://doi.org/10.25493/36PM-H72. Released under
 [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
 
 `ca1_events.npz` and `ca1_fit_one_animal_si0.50.npz` are adapted from that dataset and are
-distributed under CC BY-SA 4.0, not under the MIT licence of the code. Changes made in
+distributed under CC BY-SA 4.0, not under the MIT license of the code. Changes made in
 `ca1_events.npz`: the tracking and the cluster files were read from the raw release and
 stored as plain arrays, head position was smoothed, the tracking scale of the Neuralynx
 sessions was set to match the Axona sessions, and clusters nested in a larger cluster were
